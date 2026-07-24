@@ -1324,6 +1324,9 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 		if (dst_buf->state != VB2_BUF_STATE_ACTIVE)
 			continue;
 
+		if (dst_buf->state != VB2_BUF_STATE_ACTIVE)
+			continue;
+
 		for (i = 0; i < dst_buf->num_planes; i++)
 			vb2_set_plane_payload(dst_buf, i, 0);
 
