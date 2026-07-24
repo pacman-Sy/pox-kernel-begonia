@@ -1321,8 +1321,15 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 	ctx->state = MTK_STATE_FLUSH;
 
 	while ((dst_buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx))) {
-		vb2_set_plane_payload(dst_buf, 0, 0);
-		vb2_set_plane_payload(dst_buf, 1, 0);
+		if (dst_buf->state != VB2_BUF_STATE_ACTIVE)
+			continue;
+
+		for (i = 0; i < dst_buf->num_planes; i++)
+			vb2_set_plane_payload(dst_buf, i, 0);
+
+		struct vb2_v4l2_buffer *vb2_v4l2 = NULL;
+		vb2_v4l2 = container_of(dst_buf,
+			struct vb2_v4l2_buffer, vb2_buf);
 		v4l2_m2m_buf_done(to_vb2_v4l2_buffer(dst_buf),
 					VB2_BUF_STATE_ERROR);
 	}
