@@ -4503,7 +4503,13 @@ CONFIG_BEGONIA_NFC=y
 # CONFIG_CANNONG_NFC is not set
 # CONFIG_BOMB_NFC is not set
 # CONFIG_CEZANNE_NFC is not set
+<<<<<<< HEAD
 CONFIG_EROFS_FS=y
+=======
+CONFIG_EROFS_FS_ZIP=y
+CONFIG_EROFS_FS_PCPU_KTHREAD=y
+CONFIG_EROFS_FS_PCPU_KTHREAD_HIPRI=y
+>>>>>>> fe76af83d6aa (arch: arm64: defconfig: Enable PCPU KTHREAD for EROFS)
 
 #
 # Firmware Drivers
