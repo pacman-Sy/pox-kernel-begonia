@@ -261,6 +261,8 @@ ui_print "  * Build Date : $commit_date                ";
 ui_print "  * Toolchain  : $toolchain_ver              ";
 ui_print "  * Features   : APatch / KernelPatch ready  ";
 ui_print "  * Mem Engine : iOS-Style On-Demand ZRAM    ";
+ui_print "  * Game Engine: Zero Frame-Drop Gaming Mode ";
+ui_print "  * Perf Mode  : ROM Performance Auto-Trigger";
 ui_print " --------------------------------------------";
 ui_print "  LATEST COMMIT:";
 ui_print "  $commit_subject";
@@ -280,16 +282,18 @@ chown -R root:root \$RAMDISK/*;
 ui_print " [*] [2/4] Dumping and unpacking current boot image...";
 dump_boot;
 
-## Ramdisk memory enhancement
+## Ramdisk enhancements
 if [ -d "\$RAMDISK" ]; then
-    ui_print " [*] Injecting iOS-style memory enhancement into ramdisk...";
+    ui_print " [*] Injecting memory enhancement & gaming mode into ramdisk...";
+
+    # 1. iOS-Style On-Demand Compressed Memory Management
     cat << 'RC_EOF' > \$RAMDISK/init.memory_enhanced.rc
 on boot
     # iOS-style On-Demand Compressed Memory Management
     write /proc/sys/vm/watermark_scale_factor 150
     write /proc/sys/vm/page-cluster 0
     write /proc/sys/vm/vfs_cache_pressure 60
-    write /proc/sys/vm/swappiness 80
+    write /proc/sys/vm/swappiness 100
     write /proc/sys/vm/dirty_ratio 15
     write /proc/sys/vm/dirty_background_ratio 5
 
@@ -298,11 +302,88 @@ on property:sys.boot_completed=1
     write /proc/sys/vm/watermark_scale_factor 150
     write /proc/sys/vm/page-cluster 0
     write /proc/sys/vm/vfs_cache_pressure 60
-    write /proc/sys/vm/swappiness 80
+    write /proc/sys/vm/swappiness 100
 RC_EOF
     chmod 644 \$RAMDISK/init.memory_enhanced.rc
+
+    # 2. Zero Frame-Drop Gaming Mode & ROM Performance Mode Triggers
+    cat << 'RC_EOF' > \$RAMDISK/init.gaming.rc
+# Gaming Mode Init Script for Redmi Note 8 Pro (begonia)
+# Triggers full gaming performance optimizations when Performance Mode / GameSpace is selected in the ROM
+
+on boot
+    chmod 0664 /proc/perfmgr/gaming_mode
+    chmod 0664 /sys/kernel/gaming_mode
+    chmod 0664 /sys/module/ged/parameters/gx_game_mode
+    chmod 0664 /sys/module/ged/parameters/gx_boost_on
+    chmod 0664 /sys/module/ged/parameters/boost_gpu_enable
+    chmod 0664 /sys/module/ged/parameters/gx_force_cpu_boost
+    write /sys/module/ged/parameters/boost_gpu_enable 1
+
+# ROM Performance Mode / Game Space Active
+on property:persist.sys.power_mode_perf=1
+    write /proc/perfmgr/gaming_mode 1
+    write /sys/block/sda/queue/read_ahead_kb 512
+    write /sys/block/sdb/queue/read_ahead_kb 512
+    write /sys/block/sdc/queue/read_ahead_kb 512
+    write /sys/block/mmcblk0/queue/read_ahead_kb 512
+
+on property:persist.sys.power_mode_perf=0
+    write /proc/perfmgr/gaming_mode 0
+    write /sys/block/sda/queue/read_ahead_kb 128
+    write /sys/block/sdb/queue/read_ahead_kb 128
+    write /sys/block/sdc/queue/read_ahead_kb 128
+    write /sys/block/mmcblk0/queue/read_ahead_kb 128
+
+# LineageOS Performance Profile (0=power_save, 1=balanced, 2=performance)
+on property:sys.perf.profile=2
+    setprop persist.sys.power_mode_perf 1
+
+on property:sys.perf.profile=1
+    setprop persist.sys.power_mode_perf 0
+
+on property:sys.perf.profile=0
+    setprop persist.sys.power_mode_perf 0
+
+# GameSpace Mode (AOSP / Chaldea GameSpace)
+on property:sys.gamespace.mode=1
+    setprop persist.sys.power_mode_perf 1
+
+on property:sys.gamespace.mode=0
+    setprop persist.sys.power_mode_perf 0
+
+on property:sys.gamespace.in_game=1
+    setprop persist.sys.power_mode_perf 1
+
+on property:sys.gamespace.in_game=0
+    setprop persist.sys.power_mode_perf 0
+
+# AOSP / PixelOS / LineageOS libperfmgr PowerHAL trigger
+on property:vendor.powerhal.state=SUSTAINED_PERFORMANCE
+    setprop persist.sys.power_mode_perf 1
+
+on property:vendor.powerhal.state=""
+    setprop persist.sys.power_mode_perf 0
+
+# MIUI / HyperOS Performance Mode trigger
+on property:persist.sys.perf_mode=1
+    setprop persist.sys.power_mode_perf 1
+
+on property:persist.sys.perf_mode=0
+    setprop persist.sys.power_mode_perf 0
+
+# Direct debug toggle
+on property:debug.gaming.mode=1
+    setprop persist.sys.power_mode_perf 1
+
+on property:debug.gaming.mode=0
+    setprop persist.sys.power_mode_perf 0
+RC_EOF
+    chmod 644 \$RAMDISK/init.gaming.rc
+
     if [ -f "\$RAMDISK/init.rc" ]; then
         insert_line init.rc "init.memory_enhanced.rc" after "import /init.environ.rc" "import /init.memory_enhanced.rc";
+        insert_line init.rc "init.gaming.rc" after "import /init.memory_enhanced.rc" "import /init.gaming.rc";
     fi
 fi
 
@@ -313,6 +394,8 @@ ui_print "     - Low-battery lag/throttling fix: active";
 ui_print "     - APatch / KernelPatch KALLSYMS: enabled";
 ui_print "     - iOS-Style Compressed Memory: watermark=150, cluster=0";
 ui_print "     - High-speed ZRAM / ZSWAP compression: active";
+ui_print "     - Zero Frame-Drop Gaming Mode: active on ROM Performance toggle";
+ui_print "     - FPSGO Ultra-Rescue + Mali-G76 MC4 Touch Boost: enabled";
 write_boot;
 
 ui_print " [*] [4/4] Cleaning up temporary installer files...";
