@@ -125,3 +125,24 @@ all.config
 
 # fetched Android config fragments
 kernel/configs/android-*.cfg
+<<<<<<< HEAD
+=======
+
+out/
+build/
+*.zip
+Anykernel/
+/anykernel/
+clang*
+/kerdevdep/clang/
+/kerdevdep/gcc/
+/kerdevdep/usr/
+/kerdevdep/lib/
+/kerdevdep/etc/
+/kerdevdep/anykernel/
+/kerdevdep/bin/
+/kerdevdep/*.tar.gz
+/kerdevdep/*.zip
+scratch/
+
+>>>>>>> 5e8a57559aed (build: add portable build system, AnyKernel3 packaging and clean CI)
