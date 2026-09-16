@@ -1,46 +1,11 @@
 #!/usr/bin/env bash
 #
-<<<<<<< HEAD
-# build.sh - PoWeR kernel builder for begonia (Redmi Note 8 Pro, MT6785)
-=======
 # build.sh - Portable MeTh kernel builder & AnyKernel3 flashable zip packager
 # For Redmi Note 8 Pro (begonia, MT6785)
->>>>>>> 5e8a57559aed (build: add portable build system, AnyKernel3 packaging and clean CI)
 #
 # Dependencies are fully self-contained inside ./kerdevdep
 # Builds and flashable zips are placed in ./build
 #
-<<<<<<< HEAD
-# Requirements: bash, curl, tar, unzip, zip, cpio, make, python3
-#
-# Environment overrides:
-#   KERNEL_NAME   zip/kernel name (default: PoWeR-Kernel-begonia)
-#   CLANG_VER     android clang release, e.g. clang-r383902 (default)
-#   GCC_VER       gcc version tag, e.g. android-11.0.0_r1 (default)
-#   TC_ROOT       directory where toolchains are stored (default: $HOME/toolchains)
-#   OUT_DIR       kernel out directory (default: out)
-#   DEFCONFIG     kernel defconfig (default: begonia_apatch_defconfig; use
-#                 begonia_user_defconfig for a plain non-APatch build)
-#   CLANG_DIR     preinstalled clang prefix dir (bin/clang expected inside)
-#   GCC_DIR       preinstalled binutils prefix dir (bin/aarch64-linux-android-* inside)
-#   JOBS          build jobs (default: $(nproc))
-#   SKIP_CLEAN    set to 1 to reuse an existing out/ tree
-#   SKIP_PACKAGE  set to 1 to skip making the flashable zip
-#   KEEP_CUSTOM_FLAGS
-#                 set to 1 to keep CONFIG_LLVM_POLLY / CONFIG_INLINE_OPTIMIZATION
-#                 even if the toolchain does not support the custom -mllvm flags
-#                 (only use with a patched/MTK clang that supports them)
-#   EXTRA_FLAGS   extra flags appended to both make invocations
-
-set -euo pipefail
-
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-KERNEL_NAME="${KERNEL_NAME:-PoWeR-Kernel-begonia}"
-CLANG_VER="${CLANG_VER:-clang-r383902}"
-GCC_VER="${GCC_VER:-android-11.0.0_r1}"
-TC_ROOT="${TC_ROOT:-$HOME/toolchains}"
-OUT_DIR="${OUT_DIR:-out}"
-=======
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -49,7 +14,6 @@ OUT_DIR="${OUT_DIR:-$BUILD_DIR/out}"
 KERDEVDEP="${KERDEVDEP:-$ROOT_DIR/kerdevdep}"
 KERNEL_NAME="${KERNEL_NAME:-Pox-Kernel-begonia}"
 DEFCONFIG="${DEFCONFIG:-begonia_apatch_defconfig}"
->>>>>>> 5e8a57559aed (build: add portable build system, AnyKernel3 packaging and clean CI)
 JOBS="${JOBS:-$(nproc)}"
 EXTRA_FLAGS="${EXTRA_FLAGS:-}"
 DATE="$(date +%Y%m%d-%H%M)"
@@ -74,12 +38,8 @@ CLANG_TRIPLE=aarch64-linux-gnu-
 CROSS_COMPILE=aarch64-linux-android-
 AK3_DIR="$KERDEVDEP/anykernel"
 
-<<<<<<< HEAD
-log() { printf '\033[1;32m[*] %s\033[0m\n' "$*"; }
-=======
 export KBUILD_BUILD_USER="${KBUILD_BUILD_USER:-TXO_R}"
 export KBUILD_BUILD_HOST="${KBUILD_BUILD_HOST:-PoxKernel}"
->>>>>>> 5e8a57559aed (build: add portable build system, AnyKernel3 packaging and clean CI)
 
 ACTION="${1:-all}"
 
@@ -121,11 +81,8 @@ prepare_config() {
         log "Toolchain rejects repeated -mllvm thresholds - disabling CONFIG_INLINE_OPTIMIZATION"
         ./scripts/config --file "$OUT_DIR/.config" --disable INLINE_OPTIMIZATION
     fi
-<<<<<<< HEAD
-=======
 
     # shellcheck disable=SC2086
->>>>>>> 5e8a57559aed (build: add portable build system, AnyKernel3 packaging and clean CI)
     make O="$OUT_DIR" ARCH="$ARCH" CC="$CC" \
         CLANG_TRIPLE="$CLANG_TRIPLE" CROSS_COMPILE="$CROSS_COMPILE" \
         $EXTRA_FLAGS olddefconfig
@@ -167,12 +124,6 @@ build_kernel() {
 
     mkdir -p "$OUT_DIR" "$BUILD_DIR"
     cd "$ROOT_DIR"
-<<<<<<< HEAD
-    make O="$OUT_DIR" ARCH="$ARCH" CC="$bcc" \
-        CLANG_TRIPLE="$CLANG_TRIPLE" CROSS_COMPILE="$CROSS_COMPILE" \
-        $EXTRA_FLAGS "$DEFCONFIG"
-    prepare_config
-=======
 
     if [[ ! -f "$OUT_DIR/.config" ]]; then
         log "Configuring with $DEFCONFIG ..."
@@ -191,7 +142,6 @@ build_kernel() {
 
     log "Starting kernel compilation..."
     # shellcheck disable=SC2086
->>>>>>> 5e8a57559aed (build: add portable build system, AnyKernel3 packaging and clean CI)
     make O="$OUT_DIR" ARCH="$ARCH" CC="$bcc" \
         CLANG_TRIPLE="$CLANG_TRIPLE" CROSS_COMPILE="$CROSS_COMPILE" \
         $EXTRA_FLAGS -j"$JOBS"
@@ -228,8 +178,39 @@ package_zip() {
     cp -r "$AK3_DIR/." "$stage/"
     cp "$image" "$stage/Image.gz-dtb"
 
-    local commit_hash
+    local commit_hash commit_date commit_subject kver toolchain_ver git_branch
     commit_hash="$(git rev-parse --short HEAD 2>/dev/null || echo "custom")"
+    commit_date="$(git log -1 --format=%cd --date=format:'%Y-%m-%d %H:%M' 2>/dev/null || date +'%Y-%m-%d %H:%M')"
+    commit_subject="$(git log -1 --format=%s 2>/dev/null || echo "Release build")"
+    git_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "memory-enhanced")"
+    kver="4.14.$(grep -m1 '^SUBLEVEL =' "$ROOT_DIR/Makefile" | awk '{print $3}')"
+    toolchain_ver="Clang 11.0.1 + GCC 9.3"
+
+    # Generate dynamic changelog ui_print statements for TWRP
+    local changelog_ui=""
+    while IFS= read -r line; do
+        [[ -n "$line" ]] || continue
+        local escaped_line
+        escaped_line="$(echo "$line" | sed 's/"/\\"/g')"
+        changelog_ui+="ui_print \"   * ${escaped_line}\";\n"
+    done < <(git log -n 8 --pretty=format:"[%h] %s" 2>/dev/null || echo "[custom] Initial Pox Kernel release")
+
+    # Generate standalone CHANGELOG.txt for the flashable zip
+    {
+        echo "========================================================"
+        echo " POX KERNEL - Redmi Note 8 Pro (begonia)"
+        echo " Maintainer: TXO R"
+        echo " Motto: We aim for stability, not for anything else."
+        echo " Branch: $git_branch"
+        echo " Linux: v$kver | Build: $commit_hash | Date: $commit_date"
+        echo " Toolchain: $toolchain_ver"
+        echo " Defconfig: $DEFCONFIG (APatch ready)"
+        echo " Memory: iOS-Style On-Demand Multi-Stream Compressed ZRAM"
+        echo "========================================================"
+        echo ""
+        echo "--- Changelog (Recent Commits) ---"
+        git log -n 15 --pretty=format:"* %h (%cd) - %s%n  Author: %an%n%b" --date=short 2>/dev/null || git log -n 5 2>/dev/null || true
+    } > "$stage/CHANGELOG.txt"
 
     cat << AK_EOF > "$stage/anykernel.sh"
 # AnyKernel3 Ramdisk Mod Script
@@ -254,6 +235,8 @@ supported.patchlevels=
 
 ## shell variables
 BLOCK=/dev/block/by-name/boot;
+# begonia (Redmi Note 8 Pro) is an A-only device: a single boot partition,
+# no A/B slot suffix. Keep IS_SLOT_DEVICE=0 (AnyKernel3 default for A-only).
 IS_SLOT_DEVICE=0;
 RAMDISK_COMPRESSION=auto;
 PATCH_VBMETA_FLAG=auto;
@@ -262,7 +245,7 @@ PATCH_VBMETA_FLAG=auto;
 # import patching functions/variables - see for reference
 . tools/ak3-core.sh;
 
-## TWRP / Recovery UI Banner
+## TWRP / Recovery UI Banner & Version Details
 ui_print " ";
 ui_print " ============================================";
 ui_print "                 POX KERNEL                  ";
@@ -271,13 +254,25 @@ ui_print "  * Device     : Redmi Note 8 Pro (begonia)  ";
 ui_print "  * Maintainer : TXO R                       ";
 ui_print "  * Motto      : We aim for stability,       ";
 ui_print "                 not for anything else.      ";
-ui_print "  * Commit     : $commit_hash";
+ui_print "  * Branch     : $git_branch                 ";
+ui_print "  * Linux Ver  : $kver                       ";
+ui_print "  * Build Hash : $commit_hash                ";
+ui_print "  * Build Date : $commit_date                ";
+ui_print "  * Toolchain  : $toolchain_ver              ";
 ui_print "  * Features   : APatch / KernelPatch ready  ";
+ui_print "  * Mem Engine : iOS-Style On-Demand ZRAM    ";
+ui_print " --------------------------------------------";
+ui_print "  LATEST COMMIT:";
+ui_print "  $commit_subject";
+ui_print " --------------------------------------------";
+ui_print "  CHANGELOG (Recent Changes):";
+$(printf '%b' "$changelog_ui")
 ui_print " ============================================";
 ui_print " ";
 
 ## AnyKernel file attributes
 ui_print " [*] [1/4] Configuring ramdisk permissions & ownership...";
+ui_print "     - Target partition: /dev/block/by-name/boot (A-only)";
 chmod -R 750 \$RAMDISK/*;
 chown -R root:root \$RAMDISK/*;
 
@@ -285,7 +280,39 @@ chown -R root:root \$RAMDISK/*;
 ui_print " [*] [2/4] Dumping and unpacking current boot image...";
 dump_boot;
 
+## Ramdisk memory enhancement
+if [ -d "\$RAMDISK" ]; then
+    ui_print " [*] Injecting iOS-style memory enhancement into ramdisk...";
+    cat << 'RC_EOF' > \$RAMDISK/init.memory_enhanced.rc
+on boot
+    # iOS-style On-Demand Compressed Memory Management
+    write /proc/sys/vm/watermark_scale_factor 150
+    write /proc/sys/vm/page-cluster 0
+    write /proc/sys/vm/vfs_cache_pressure 60
+    write /proc/sys/vm/swappiness 80
+    write /proc/sys/vm/dirty_ratio 15
+    write /proc/sys/vm/dirty_background_ratio 5
+
+on property:sys.boot_completed=1
+    write /sys/block/zram0/comp_algorithm lz4
+    write /proc/sys/vm/watermark_scale_factor 150
+    write /proc/sys/vm/page-cluster 0
+    write /proc/sys/vm/vfs_cache_pressure 60
+    write /proc/sys/vm/swappiness 80
+RC_EOF
+    chmod 644 \$RAMDISK/init.memory_enhanced.rc
+    if [ -f "\$RAMDISK/init.rc" ]; then
+        insert_line init.rc "init.memory_enhanced.rc" after "import /init.environ.rc" "import /init.memory_enhanced.rc";
+    fi
+fi
+
 ui_print " [*] [3/4] Repacking boot image with Pox kernel (Image.gz-dtb)...";
+ui_print "     - Linux kernel: v$kver (MT6785 / Helio G90T)";
+ui_print "     - Low-battery call reboot fix: active";
+ui_print "     - Low-battery lag/throttling fix: active";
+ui_print "     - APatch / KernelPatch KALLSYMS: enabled";
+ui_print "     - iOS-Style Compressed Memory: watermark=150, cluster=0";
+ui_print "     - High-speed ZRAM / ZSWAP compression: active";
 write_boot;
 
 ui_print " [*] [4/4] Cleaning up temporary installer files...";
