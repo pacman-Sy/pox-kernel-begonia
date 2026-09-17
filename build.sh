@@ -25,7 +25,7 @@ EXTRA_FLAGS="${EXTRA_FLAGS:-}"
 DATE="$(date +%Y%m%d-%H%M)"
 
 # Git Metadata: Branch & Commit ID
-GIT_BRANCH="${GIT_BRANCH:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "gaming")}"
+GIT_BRANCH="${GIT_BRANCH:-${GITHUB_REF_NAME:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "onyx")}}"
 COMMIT_HASH="${COMMIT_HASH:-$(git rev-parse --short HEAD 2>/dev/null || echo "custom")}"
 COMMIT_DATE="$(git log -1 --format=%cd --date=format:'%Y-%m-%d %H:%M' 2>/dev/null || date +'%Y-%m-%d %H:%M')"
 COMMIT_SUBJECT="$(git log -1 --format=%s 2>/dev/null || echo "Release build")"
