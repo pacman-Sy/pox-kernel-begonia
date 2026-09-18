@@ -369,41 +369,47 @@ if [ -d "\$RAMDISK" ]; then
 
     # 1. iOS-Style On-Demand Compressed Memory Management
     cat << 'RC_EOF' > \$RAMDISK/init.memory_enhanced.rc
+# iOS-style On-Demand Compressed Memory Management
 on boot
-    # iOS-style On-Demand Compressed Memory Management
-    write /proc/sys/vm/watermark_scale_factor 150
+    write /proc/sys/vm/watermark_scale_factor 200
     write /proc/sys/vm/page-cluster 0
-    write /proc/sys/vm/vfs_cache_pressure 60
+    write /proc/sys/vm/vfs_cache_pressure 50
     write /proc/sys/vm/swappiness 100
-    write /proc/sys/vm/dirty_ratio 15
+    write /proc/sys/vm/dirty_ratio 10
     write /proc/sys/vm/dirty_background_ratio 5
 
 on property:sys.boot_completed=1
     write /sys/block/zram0/comp_algorithm lz4
-    write /proc/sys/vm/watermark_scale_factor 150
+    write /proc/sys/vm/watermark_scale_factor 200
     write /proc/sys/vm/page-cluster 0
-    write /proc/sys/vm/vfs_cache_pressure 60
+    write /proc/sys/vm/vfs_cache_pressure 50
     write /proc/sys/vm/swappiness 100
+    write /proc/sys/vm/dirty_ratio 10
+    write /proc/sys/vm/dirty_background_ratio 5
 RC_EOF
     chmod 644 \$RAMDISK/init.memory_enhanced.rc
 
-    # 2. Zero Frame-Drop Gaming Mode & ROM Performance Mode Triggers
+    # 2. Zero Frame-Drop Gaming Mode, Real Colors Calibration & ROM Performance Mode Triggers
     cat << 'RC_EOF' > \$RAMDISK/init.gaming.rc
-# Gaming Mode Init Script for Redmi Note 8 Pro (begonia)
-# Triggers full gaming performance optimizations when Performance Mode / GameSpace is selected in the ROM
+# Gaming Mode & iOS Display Init Script for Redmi Note 8 Pro (begonia)
+# Triggers full gaming performance optimizations and color profiles
 
 on boot
     chmod 0664 /proc/perfmgr/gaming_mode
     chmod 0664 /sys/kernel/gaming_mode
+    chmod 0664 /proc/perfmgr/color_mode
+    chmod 0664 /sys/kernel/color_mode
     chmod 0664 /sys/module/ged/parameters/gx_game_mode
     chmod 0664 /sys/module/ged/parameters/gx_boost_on
     chmod 0664 /sys/module/ged/parameters/boost_gpu_enable
     chmod 0664 /sys/module/ged/parameters/gx_force_cpu_boost
     write /sys/module/ged/parameters/boost_gpu_enable 1
+    write /proc/perfmgr/color_mode 1
 
 # ROM Performance Mode / Game Space Active
 on property:persist.sys.power_mode_perf=1
     write /proc/perfmgr/gaming_mode 1
+    write /proc/perfmgr/color_mode 2
     write /sys/block/sda/queue/read_ahead_kb 512
     write /sys/block/sdb/queue/read_ahead_kb 512
     write /sys/block/sdc/queue/read_ahead_kb 512
@@ -411,6 +417,7 @@ on property:persist.sys.power_mode_perf=1
 
 on property:persist.sys.power_mode_perf=0
     write /proc/perfmgr/gaming_mode 0
+    write /proc/perfmgr/color_mode 1
     write /sys/block/sda/queue/read_ahead_kb 128
     write /sys/block/sdb/queue/read_ahead_kb 128
     write /sys/block/sdc/queue/read_ahead_kb 128
@@ -473,8 +480,9 @@ ui_print "     - Linux kernel: v$kver (MT6785 / Helio G90T)";
 ui_print "     - Low-battery call reboot fix: active";
 ui_print "     - Low-battery lag/throttling fix: active";
 ui_print "     - APatch / KernelPatch KALLSYMS: enabled";
-ui_print "     - iOS-Style Compressed Memory: watermark=150, cluster=0";
-ui_print "     - High-speed ZRAM / ZSWAP compression: active";
+ui_print "     - iOS-Style Compressed Memory: watermark=200, vfs=50, cluster=0";
+ui_print "     - iOS TrueColor Display Engine: D65 Liquid Retina reference active";
+ui_print "     - Video Anti-Lag Engine: VDEC/VENC clock floor & LP4-2100 DDR active";
 ui_print "     - Zero Frame-Drop Gaming Mode: active on ROM Performance toggle";
 ui_print "     - FPSGO Ultra-Rescue + Mali-G76 MC4 Touch Boost: enabled";
 write_boot;
