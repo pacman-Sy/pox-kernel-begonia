@@ -401,12 +401,33 @@ on boot
     chmod 0664 /sys/kernel/gaming_mode
     chmod 0666 /proc/perfmgr/color_mode
     chmod 0664 /sys/kernel/color_mode
+    chmod 0666 /proc/perfmgr/camera_profile
+    chmod 0664 /sys/kernel/camera_profile
+    chmod 0666 /proc/perfmgr/camera_4k60
+    chmod 0664 /sys/kernel/camera_4k60
+    chmod 0666 /proc/perfmgr/slog3
+    chmod 0664 /sys/kernel/slog3
+    chmod 0666 /proc/perfmgr/touch_game_mode
+    chmod 0666 /proc/perfmgr/touch_sensitivity
+    chmod 0664 /sys/class/touch/touch_dev/touch_game_mode
+    chmod 0664 /sys/class/touch/touch_dev/touch_sensitivity
+    chmod 0666 /proc/perfmgr/headphone_gain
+    chmod 0664 /sys/kernel/sound_control/headphone_gain
+    chmod 0666 /proc/perfmgr/battery_bypass
+    chmod 0666 /proc/perfmgr/battery_limit
+    chmod 0444 /proc/perfmgr/battery_status
     chmod 0666 /sys/module/ged/parameters/gx_game_mode
     chmod 0666 /sys/module/ged/parameters/gx_boost_on
     chmod 0666 /sys/module/ged/parameters/boost_gpu_enable
     chmod 0666 /sys/module/ged/parameters/gx_force_cpu_boost
     write /sys/module/ged/parameters/boost_gpu_enable 1
     write /proc/perfmgr/color_mode 1
+
+    # Default flash storage readahead to 512KB for smooth 4K capture and I/O
+    write /sys/block/sda/queue/read_ahead_kb 512
+    write /sys/block/sdb/queue/read_ahead_kb 512
+    write /sys/block/sdc/queue/read_ahead_kb 512
+    write /sys/block/mmcblk0/queue/read_ahead_kb 512
 
 # ROM Performance Mode / Game Space Active
 on property:persist.sys.power_mode_perf=1
@@ -500,8 +521,13 @@ fi
 ui_print " [*] [3/4] Repacking boot image with ${KERNEL_NAME} ${VERSION_NAME} (${KERNEL_VERSION})...";
 ui_print "     - Linux kernel: v$kver (MT6785 / Helio G90T)";
 ui_print "     - Low-battery call reboot fix: active";
-ui_print "     - Low-battery lag/throttling fix: active";
 ui_print "     - Smart Battery Guard: Direct-Power Bypass & 39C Thermal Protection";
+ui_print "     - Rootless Bypass Control: /proc/perfmgr/battery_bypass (0666)";
+ui_print "     - Hardware 240Hz Touch Gaming Mode: zero-debounce sampling active";
+ui_print "     - Hi-Fi Sound Control: MT6359 analog headphone gain boost (+8dB)";
+ui_print "     - LiquidCool Gaming Thermal: 78C junction target & 60 FPS lock";
+ui_print "     - Storage I/O: BFQ hierarchical scheduler & 512KB readahead active";
+ui_print "     - Cinema Camera Engine: 4K 60FPS unlocked & Sony S-Log3 active";
 ui_print "     - APatch / KernelPatch KALLSYMS: enabled";
 ui_print "     - iOS-Style Compressed Memory: watermark=200, vfs=50, cluster=0";
 ui_print "     - iOS TrueColor Display Engine: D65 Liquid Retina reference active";
