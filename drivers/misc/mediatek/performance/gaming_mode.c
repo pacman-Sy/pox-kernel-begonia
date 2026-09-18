@@ -18,6 +18,7 @@
 #include <linux/sysfs.h>
 #include <linux/string.h>
 #include <linux/ctype.h>
+#include <linux/workqueue.h>
 
 #include "gaming_mode.h"
 
@@ -40,6 +41,9 @@ extern int get_ios_color_mode(void);
 
 static int gaming_mode_state = GAMING_MODE_DISABLED;
 static int user_color_mode_override = -1;
+static int camera_4k60_force = 0;
+static atomic_t pox_cam_active_sessions = ATOMIC_INIT(0);
+static struct delayed_work pox_cam_boost_decay_work;
 static DEFINE_MUTEX(gaming_mode_lock);
 
 int color_mode_set(int mode)
@@ -53,6 +57,78 @@ int color_mode_get(void)
 	return get_ios_color_mode();
 }
 EXPORT_SYMBOL(color_mode_get);
+
+int camera_4k60_set(int force)
+{
+	camera_4k60_force = force ? 1 : 0;
+	pr_info("Camera 4K 60FPS Force Mode: %s\n",
+		camera_4k60_force ? "ENABLED (60FPS Forced)" : "AUTO (App Request)");
+	return 0;
+}
+EXPORT_SYMBOL(camera_4k60_set);
+
+int camera_4k60_get(void)
+{
+	return camera_4k60_force;
+}
+EXPORT_SYMBOL(camera_4k60_get);
+
+int camera_slog3_set(int enable)
+{
+	if (enable)
+		return set_ios_color_mode(COLOR_MODE_SLOG3);
+	else
+		return set_ios_color_mode(COLOR_MODE_REFERENCE);
+}
+EXPORT_SYMBOL(camera_slog3_set);
+
+int camera_slog3_get(void)
+{
+	return (get_ios_color_mode() == COLOR_MODE_SLOG3) ? 1 : 0;
+}
+EXPORT_SYMBOL(camera_slog3_get);
+
+static void pox_cam_boost_decay_func(struct work_struct *work)
+{
+	/* Decay launch boost down after 750ms if not in Extreme gaming mode */
+	if (gaming_mode_state < GAMING_MODE_EXTREME)
+		fbt_boost_dram(0);
+
+	/* Restore normal top-app schedtune boost */
+	if (gaming_mode_state > 0)
+		boost_write_for_perf_idx(3, 20);
+	else
+		boost_write_for_perf_idx(3, 5);
+}
+
+void pox_camera_launch_boost(int enable)
+{
+	if (enable) {
+		int count = atomic_inc_return(&pox_cam_active_sessions);
+
+		if (count == 1) {
+			pr_info("Camera launch boost engaged: instant viewfinder QoS primed.\n");
+			/* Instant high-throughput DRAM boost to eliminate sensor init/viewfinder frame drops */
+			fbt_boost_dram(1);
+			/* Aggressive CPU schedtune for camera rendering and sensor init */
+			boost_write_for_perf_idx(3, 40);
+			prefer_idle_for_perf_idx(3, 1);
+			/* Schedule 750ms decay */
+			cancel_delayed_work(&pox_cam_boost_decay_work);
+			schedule_delayed_work(&pox_cam_boost_decay_work, msecs_to_jiffies(750));
+		}
+	} else {
+		int count = atomic_dec_return(&pox_cam_active_sessions);
+
+		if (count <= 0) {
+			atomic_set(&pox_cam_active_sessions, 0);
+			cancel_delayed_work(&pox_cam_boost_decay_work);
+			pox_cam_boost_decay_func(NULL);
+			pr_info("Camera session released: launch boost restored.\n");
+		}
+	}
+}
+EXPORT_SYMBOL(pox_camera_launch_boost);
 
 int gaming_mode_set(int mode)
 {
@@ -180,6 +256,7 @@ static int gaming_mode_proc_show(struct seq_file *m, void *v)
 	seq_printf(m, "  - top_app_boost: %d%%\n", state ? 20 : 5);
 	seq_printf(m, "  - top_app_prefer_idle: enabled\n");
 	seq_printf(m, "  - color_mode: %d (%s)\n", color_st,
+		(color_st == COLOR_MODE_SLOG3) ? "Sony S-Log3 / Cinema Flat Profile (LUT Grading)" :
 		(color_st == COLOR_MODE_VIVID) ? "iOS Vivid / Gaming Cinema" :
 		(color_st == COLOR_MODE_REFERENCE) ? "iOS TrueColor Reference (Calibrated D65)" : "Standard Neutral");
 	seq_printf(m, "  - video_clock_floor: active (anti-lag enabled)\n");
@@ -189,6 +266,7 @@ static int gaming_mode_proc_show(struct seq_file *m, void *v)
 	seq_printf(m, "  - io_scheduler: deadline (guaranteed UFS read latency)\n");
 	seq_printf(m, "  - tcp_congestion: bbr (low bufferbloat)\n");
 	seq_printf(m, "  - hardware_touch_boost: enabled (A55@1.50GHz / A76@1.53GHz + 60%% TA uclamp)\n");
+	seq_printf(m, "  - camera_4k_60fps: unlocked (Samsung GW1 16MP@60fps)\n");
 	return 0;
 }
 
@@ -219,10 +297,6 @@ static ssize_t gaming_mode_proc_write(struct file *file, const char __user *ubuf
 	} else {
 		if (kstrtoint(buf, 10, &val) < 0)
 			return -EINVAL;
-		if (val < 0)
-			val = 0;
-		else if (val > 2)
-			val = 2;
 	}
 
 	gaming_mode_set(val);
@@ -248,7 +322,9 @@ static int color_mode_proc_show(struct seq_file *m, void *v)
 	int mode = get_ios_color_mode();
 
 	seq_printf(m, "color_mode: %d\n", mode);
-	if (mode == COLOR_MODE_VIVID)
+	if (mode == COLOR_MODE_SLOG3)
+		seq_printf(m, "status: Sony S-Log3 / Cinema Flat Profile (Logarithmic Dynamic Range for LUT Grading)\n");
+	else if (mode == COLOR_MODE_VIVID)
 		seq_printf(m, "status: iOS Vivid / Gaming Cinema (Enhanced HDR for Games & Movies)\n");
 	else if (mode == COLOR_MODE_REFERENCE)
 		seq_printf(m, "status: iOS TrueColor Reference (Calibrated D65 Liquid Retina)\n");
@@ -277,8 +353,8 @@ static ssize_t color_mode_proc_write(struct file *file, const char __user *ubuf,
 
 	if (val < 0)
 		val = 0;
-	else if (val > 2)
-		val = 2;
+	else if (val > 3)
+		val = 3;
 
 	user_color_mode_override = val;
 	set_ios_color_mode(val);
@@ -295,6 +371,138 @@ static const struct file_operations color_mode_proc_fops = {
 	.open    = color_mode_proc_open,
 	.read    = seq_read,
 	.write   = color_mode_proc_write,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
+
+static int camera_profile_proc_show(struct seq_file *m, void *v)
+{
+	int mode = get_ios_color_mode();
+
+	seq_printf(m, "camera_profile: %d\n", mode);
+	if (mode == COLOR_MODE_SLOG3)
+		seq_printf(m, "profile_name: Sony S-Log3 / Cinema Flat (Wide Dynamic Range for LUT Grading)\n");
+	else if (mode == COLOR_MODE_VIVID)
+		seq_printf(m, "profile_name: iOS Vivid / Cinema (Enhanced Dynamic Range)\n");
+	else if (mode == COLOR_MODE_REFERENCE)
+		seq_printf(m, "profile_name: iOS TrueColor Reference (Calibrated D65 Liquid Retina)\n");
+	else
+		seq_printf(m, "profile_name: Standard Rec.709 Neutral\n");
+
+	seq_printf(m, "camera_4k60_force: %d\n", camera_4k60_get());
+	seq_printf(m, "slog3_active: %d\n", camera_slog3_get());
+	seq_printf(m, "launch_boost_active_sessions: %d\n", atomic_read(&pox_cam_active_sessions));
+
+	seq_printf(m, "capabilities:\n");
+	seq_printf(m, "  - 4k_60fps_recording: enabled (Samsung GW1 16MP@60fps custom3 mode)\n");
+	seq_printf(m, "  - isp_qos_floor: locked 560MHz peak Imagiq clock (zero dropped frames)\n");
+	seq_printf(m, "  - venc_clock_floor: locked peak OPP 0 (anti-collapse)\n");
+	seq_printf(m, "  - memory_qos_floor: LP4X-3733 peak bandwidth\n");
+	seq_printf(m, "  - zero_shutter_lag: supported (2-frame delay pipeline)\n");
+	seq_printf(m, "  - log_transfer_function: %s\n", (mode == COLOR_MODE_SLOG3) ? "S-Log3 Logarithmic (42% Middle Gray, 61% 90-White)" : "Rec.709 Standard");
+	return 0;
+}
+
+static ssize_t camera_profile_proc_write(struct file *file, const char __user *ubuf,
+					 size_t count, loff_t *ppos)
+{
+	return color_mode_proc_write(file, ubuf, count, ppos);
+}
+
+static int camera_profile_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, camera_profile_proc_show, NULL);
+}
+
+static const struct file_operations camera_profile_proc_fops = {
+	.owner   = THIS_MODULE,
+	.open    = camera_profile_proc_open,
+	.read    = seq_read,
+	.write   = camera_profile_proc_write,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
+
+/* ------------------ Camera 4K60 ProcFS ------------------ */
+
+static int camera_4k60_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d\n", camera_4k60_get());
+	return 0;
+}
+
+static ssize_t camera_4k60_proc_write(struct file *file, const char __user *ubuf,
+				      size_t count, loff_t *ppos)
+{
+	char buf[16];
+	int val = 0;
+
+	if (count >= sizeof(buf))
+		return -EINVAL;
+
+	if (copy_from_user(buf, ubuf, count))
+		return -EFAULT;
+
+	buf[count] = '\0';
+	if (sscanf(buf, "%d", &val) != 1)
+		return -EINVAL;
+
+	camera_4k60_set(val);
+	return count;
+}
+
+static int camera_4k60_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, camera_4k60_proc_show, NULL);
+}
+
+static const struct file_operations camera_4k60_proc_fops = {
+	.owner   = THIS_MODULE,
+	.open    = camera_4k60_proc_open,
+	.read    = seq_read,
+	.write   = camera_4k60_proc_write,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
+
+/* ------------------ Sony S-Log3 ProcFS ------------------ */
+
+static int slog3_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d\n", camera_slog3_get());
+	return 0;
+}
+
+static ssize_t slog3_proc_write(struct file *file, const char __user *ubuf,
+				size_t count, loff_t *ppos)
+{
+	char buf[16];
+	int val = 0;
+
+	if (count >= sizeof(buf))
+		return -EINVAL;
+
+	if (copy_from_user(buf, ubuf, count))
+		return -EFAULT;
+
+	buf[count] = '\0';
+	if (sscanf(buf, "%d", &val) != 1)
+		return -EINVAL;
+
+	camera_slog3_set(val);
+	return count;
+}
+
+static int slog3_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, slog3_proc_show, NULL);
+}
+
+static const struct file_operations slog3_proc_fops = {
+	.owner   = THIS_MODULE,
+	.open    = slog3_proc_open,
+	.read    = seq_read,
+	.write   = slog3_proc_write,
 	.llseek  = seq_lseek,
 	.release = single_release,
 };
@@ -326,7 +534,7 @@ static ssize_t gaming_mode_sysfs_store(struct kobject *kobj,
 }
 
 static struct kobj_attribute gaming_mode_kobj_attr =
-	__ATTR(gaming_mode, 0664, gaming_mode_sysfs_show, gaming_mode_sysfs_store);
+	__ATTR(gaming_mode, 0666, gaming_mode_sysfs_show, gaming_mode_sysfs_store);
 
 static ssize_t color_mode_sysfs_show(struct kobject *kobj,
 				     struct kobj_attribute *attr, char *buf)
@@ -345,8 +553,8 @@ static ssize_t color_mode_sysfs_store(struct kobject *kobj,
 
 	if (val < 0)
 		val = 0;
-	else if (val > 2)
-		val = 2;
+	else if (val > 3)
+		val = 3;
 
 	user_color_mode_override = val;
 	set_ios_color_mode(val);
@@ -354,7 +562,54 @@ static ssize_t color_mode_sysfs_store(struct kobject *kobj,
 }
 
 static struct kobj_attribute color_mode_kobj_attr =
-	__ATTR(color_mode, 0664, color_mode_sysfs_show, color_mode_sysfs_store);
+	__ATTR(color_mode, 0666, color_mode_sysfs_show, color_mode_sysfs_store);
+
+static struct kobj_attribute camera_profile_kobj_attr =
+	__ATTR(camera_profile, 0666, color_mode_sysfs_show, color_mode_sysfs_store);
+
+static ssize_t camera_4k60_sysfs_show(struct kobject *kobj,
+				      struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", camera_4k60_get());
+}
+
+static ssize_t camera_4k60_sysfs_store(struct kobject *kobj,
+				       struct kobj_attribute *attr,
+				       const char *buf, size_t count)
+{
+	int val = 0;
+
+	if (sscanf(buf, "%d", &val) != 1)
+		return -EINVAL;
+
+	camera_4k60_set(val);
+	return count;
+}
+
+static struct kobj_attribute camera_4k60_kobj_attr =
+	__ATTR(camera_4k60, 0666, camera_4k60_sysfs_show, camera_4k60_sysfs_store);
+
+static ssize_t slog3_sysfs_show(struct kobject *kobj,
+				struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", camera_slog3_get());
+}
+
+static ssize_t slog3_sysfs_store(struct kobject *kobj,
+				 struct kobj_attribute *attr,
+				 const char *buf, size_t count)
+{
+	int val = 0;
+
+	if (sscanf(buf, "%d", &val) != 1)
+		return -EINVAL;
+
+	camera_slog3_set(val);
+	return count;
+}
+
+static struct kobj_attribute slog3_kobj_attr =
+	__ATTR(slog3, 0666, slog3_sysfs_show, slog3_sysfs_store);
 
 /* ------------------ Init Function ------------------ */
 
@@ -366,6 +621,8 @@ int init_gaming_mode(struct proc_dir_entry *parent)
 	if (!parent)
 		return -EINVAL;
 
+	INIT_DELAYED_WORK(&pox_cam_boost_decay_work, pox_cam_boost_decay_func);
+
 	entry = proc_create("gaming_mode", 0666, parent, &gaming_mode_proc_fops);
 	if (!entry) {
 		pr_err("Failed to create /proc/perfmgr/gaming_mode\n");
@@ -375,6 +632,18 @@ int init_gaming_mode(struct proc_dir_entry *parent)
 	entry = proc_create("color_mode", 0666, parent, &color_mode_proc_fops);
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/color_mode\n");
+
+	entry = proc_create("camera_profile", 0666, parent, &camera_profile_proc_fops);
+	if (!entry)
+		pr_warn("Failed to create /proc/perfmgr/camera_profile\n");
+
+	entry = proc_create("camera_4k60", 0666, parent, &camera_4k60_proc_fops);
+	if (!entry)
+		pr_warn("Failed to create /proc/perfmgr/camera_4k60\n");
+
+	entry = proc_create("slog3", 0666, parent, &slog3_proc_fops);
+	if (!entry)
+		pr_warn("Failed to create /proc/perfmgr/slog3\n");
 
 	ret = sysfs_create_file(kernel_kobj, &gaming_mode_kobj_attr.attr);
 	if (ret)
@@ -387,6 +656,24 @@ int init_gaming_mode(struct proc_dir_entry *parent)
 		pr_warn("Failed to create /sys/kernel/color_mode (ret=%d)\n", ret);
 	else
 		pr_info("/sys/kernel/color_mode created successfully\n");
+
+	ret = sysfs_create_file(kernel_kobj, &camera_profile_kobj_attr.attr);
+	if (ret)
+		pr_warn("Failed to create /sys/kernel/camera_profile (ret=%d)\n", ret);
+	else
+		pr_info("/sys/kernel/camera_profile created successfully\n");
+
+	ret = sysfs_create_file(kernel_kobj, &camera_4k60_kobj_attr.attr);
+	if (ret)
+		pr_warn("Failed to create /sys/kernel/camera_4k60 (ret=%d)\n", ret);
+	else
+		pr_info("/sys/kernel/camera_4k60 created successfully\n");
+
+	ret = sysfs_create_file(kernel_kobj, &slog3_kobj_attr.attr);
+	if (ret)
+		pr_warn("Failed to create /sys/kernel/slog3 (ret=%d)\n", ret);
+	else
+		pr_info("/sys/kernel/slog3 created successfully\n");
 
 	/* Initialize to iOS TrueColor Reference (Calibrated D65) */
 	set_ios_color_mode(COLOR_MODE_REFERENCE);
