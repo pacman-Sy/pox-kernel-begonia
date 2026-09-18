@@ -349,7 +349,9 @@ ui_print "  LATEST COMMIT:";
 ui_print "  $COMMIT_SUBJECT";
 ui_print " --------------------------------------------";
 ui_print "  CHANGELOG (Recent Changes):";
-\$(printf '%b' "$changelog_ui")
+AK_EOF
+    printf '%b' "$changelog_ui" >> "$stage/anykernel.sh"
+    cat << AK_EOF >> "$stage/anykernel.sh"
 ui_print " ============================================";
 ui_print " ";
 
