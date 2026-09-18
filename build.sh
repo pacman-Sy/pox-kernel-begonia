@@ -379,15 +379,23 @@ on boot
     write /proc/sys/vm/swappiness 100
     write /proc/sys/vm/dirty_ratio 10
     write /proc/sys/vm/dirty_background_ratio 5
+    write /proc/sys/vm/extra_free_kbytes 24300
+
+    # Low-latency high-throughput networking
+    write /proc/sys/net/ipv4/tcp_fastopen 3
+    write /proc/sys/net/ipv4/tcp_slow_start_after_idle 0
+    write /proc/sys/net/ipv4/tcp_tw_reuse 1
+    write /proc/sys/net/core/netdev_max_backlog 5000
 
 on property:sys.boot_completed=1
-    write /sys/block/zram0/comp_algorithm lz4
+    write /sys/block/zram0/comp_algorithm zstd
     write /proc/sys/vm/watermark_scale_factor 200
     write /proc/sys/vm/page-cluster 0
     write /proc/sys/vm/vfs_cache_pressure 50
     write /proc/sys/vm/swappiness 100
     write /proc/sys/vm/dirty_ratio 10
     write /proc/sys/vm/dirty_background_ratio 5
+    write /proc/sys/vm/extra_free_kbytes 24300
 RC_EOF
     chmod 644 \$RAMDISK/init.memory_enhanced.rc
 
@@ -413,6 +421,16 @@ on boot
     chmod 0664 /sys/class/touch/touch_dev/touch_sensitivity
     chmod 0666 /proc/perfmgr/headphone_gain
     chmod 0664 /sys/kernel/sound_control/headphone_gain
+    chmod 0666 /proc/perfmgr/mic_gain
+    chmod 0664 /sys/kernel/sound_control/mic_gain
+    chmod 0666 /proc/perfmgr/vibrator_strength
+    chmod 0666 /proc/perfmgr/wakelock_blocker
+    chmod 0666 /proc/perfmgr/fast_charge
+    chmod 0666 /proc/perfmgr/dt2w
+    chmod 0664 /sys/android_touch/doubletap2wake
+    chmod 0666 /proc/perfmgr/dynamic_fsync
+    chmod 0664 /sys/kernel/dynamic_fsync/dynamic_fsync
+    chmod 0666 /sys/module/task_turbo/parameters/feats
     chmod 0666 /proc/perfmgr/battery_bypass
     chmod 0666 /proc/perfmgr/battery_limit
     chmod 0444 /proc/perfmgr/battery_status
@@ -422,6 +440,8 @@ on boot
     chmod 0666 /sys/module/ged/parameters/gx_force_cpu_boost
     write /sys/module/ged/parameters/boost_gpu_enable 1
     write /proc/perfmgr/color_mode 1
+    write /proc/perfmgr/wakelock_blocker 1
+    write /proc/perfmgr/fast_charge 1
 
     # Default flash storage readahead to 512KB for smooth 4K capture and I/O
     write /sys/block/sda/queue/read_ahead_kb 512
@@ -429,10 +449,25 @@ on boot
     write /sys/block/sdc/queue/read_ahead_kb 512
     write /sys/block/mmcblk0/queue/read_ahead_kb 512
 
+    # Flash storage queue tuning for low CPU overhead & high IOPS
+    write /sys/block/sda/queue/rq_affinity 2
+    write /sys/block/sda/queue/iostats 0
+    write /sys/block/sda/queue/add_random 0
+    write /sys/block/sdb/queue/rq_affinity 2
+    write /sys/block/sdb/queue/iostats 0
+    write /sys/block/sdb/queue/add_random 0
+    write /sys/block/sdc/queue/rq_affinity 2
+    write /sys/block/sdc/queue/iostats 0
+    write /sys/block/sdc/queue/add_random 0
+    write /sys/block/mmcblk0/queue/rq_affinity 2
+    write /sys/block/mmcblk0/queue/iostats 0
+    write /sys/block/mmcblk0/queue/add_random 0
+
 # ROM Performance Mode / Game Space Active
 on property:persist.sys.power_mode_perf=1
     write /proc/perfmgr/gaming_mode 1
     write /proc/perfmgr/color_mode 2
+    write /proc/net/wlan/setCAM "CAM 1"
     write /sys/block/sda/queue/read_ahead_kb 512
     write /sys/block/sdb/queue/read_ahead_kb 512
     write /sys/block/sdc/queue/read_ahead_kb 512
@@ -441,6 +476,7 @@ on property:persist.sys.power_mode_perf=1
 on property:persist.sys.power_mode_perf=0
     write /proc/perfmgr/gaming_mode 0
     write /proc/perfmgr/color_mode 1
+    write /proc/net/wlan/setCAM "CAM 0"
     write /sys/block/sda/queue/read_ahead_kb 128
     write /sys/block/sdb/queue/read_ahead_kb 128
     write /sys/block/sdc/queue/read_ahead_kb 128
@@ -524,12 +560,21 @@ ui_print "     - Low-battery call reboot fix: active";
 ui_print "     - Smart Battery Guard: Direct-Power Bypass & 39C Thermal Protection";
 ui_print "     - Rootless Bypass Control: /proc/perfmgr/battery_bypass (0666)";
 ui_print "     - Hardware 240Hz Touch Gaming Mode: zero-debounce sampling active";
-ui_print "     - Hi-Fi Sound Control: MT6359 analog headphone gain boost (+8dB)";
-ui_print "     - LiquidCool Gaming Thermal: 78C junction target & 60 FPS lock";
+ui_print "     - Hardware Double-Tap to Wake: /proc/perfmgr/dt2w & /sys/android_touch";
+ui_print "     - MediaTek Task-Turbo: UI RenderThread, Binder & BigCore boost";
+ui_print "     - Hardware Vibrator: unlocked 3.3V range & /proc/perfmgr/vibrator_strength";
+ui_print "     - Deep Sleep Wakelock Filter: parasitic network wakelocks blocked";
+ui_print "     - Fast Charge Boost: 1.5A PC USB & 2.0A non-std charger boost active";
+ui_print "     - Hi-Fi Sound & Mic: MT6359 +8dB headphone & +18dB mic analog gain";
+ui_print "     - Dynamic Fsync Engine: micro-stutter elimination active";
+ui_print "     - Network & Wi-Fi Engine: TCP Fast Open & Wi-Fi SetCAM zero-jitter active";
+ui_print "     - EAS Schedutil & Fork: 32% capacity margin & child_runs_first active";
+ui_print "     - Flash Storage Queue: rq_affinity=2, iostats=0 & nomerges tuning";
+ui_print "     - LiquidCool Gaming Thermal: 1200mW CPU & 1000mW GPU floor lock";
 ui_print "     - Storage I/O: BFQ hierarchical scheduler & 512KB readahead active";
 ui_print "     - Cinema Camera Engine: 4K 60FPS unlocked & Sony S-Log3 active";
 ui_print "     - APatch / KernelPatch KALLSYMS: enabled";
-ui_print "     - iOS-Style Compressed Memory: watermark=200, vfs=50, cluster=0";
+ui_print "     - iOS-Style Compressed Memory: ZSTD ZRAM, 24MB cushion, vfs=50";
 ui_print "     - iOS TrueColor Display Engine: D65 Liquid Retina reference active";
 ui_print "     - Video Anti-Lag Engine: VDEC/VENC clock floor & LP4-2100 DDR active";
 ui_print "     - Zero Frame-Drop Gaming Mode: active on ROM Performance toggle";
