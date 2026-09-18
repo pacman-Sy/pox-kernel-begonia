@@ -471,9 +471,29 @@ on property:debug.gaming.mode=0
 RC_EOF
     chmod 644 \$RAMDISK/init.gaming.rc
 
+    # 3. Smart Battery Guard & Direct Power Bypass Charging
+    cat << 'RC_EOF' > \$RAMDISK/init.battery_guard.rc
+# Smart Battery Guard & Direct Power Bypass Charging for Redmi Note 8 Pro (begonia)
+on boot
+    chmod 0664 /sys/kernel/battery_protection/bypass_mode
+    chmod 0664 /sys/kernel/battery_protection/charge_limit
+    chmod 0664 /sys/kernel/battery_protection/thermal_guard
+    chmod 0664 /sys/kernel/battery_protection/temp_limit
+    chmod 0444 /sys/kernel/battery_protection/status
+    chmod 0444 /sys/kernel/battery_protection/battery_soc
+    chmod 0444 /sys/kernel/battery_protection/battery_temp
+
+    # Default to 80% Smart Charge Limit and 39C Thermal Protection
+    write /sys/kernel/battery_protection/charge_limit 80
+    write /sys/kernel/battery_protection/thermal_guard 1
+    write /sys/kernel/battery_protection/temp_limit 39
+RC_EOF
+    chmod 644 \$RAMDISK/init.battery_guard.rc
+
     if [ -f "\$RAMDISK/init.rc" ]; then
         insert_line init.rc "init.memory_enhanced.rc" after "import /init.environ.rc" "import /init.memory_enhanced.rc";
         insert_line init.rc "init.gaming.rc" after "import /init.memory_enhanced.rc" "import /init.gaming.rc";
+        insert_line init.rc "init.battery_guard.rc" after "import /init.gaming.rc" "import /init.battery_guard.rc";
     fi
 fi
 
@@ -481,6 +501,7 @@ ui_print " [*] [3/4] Repacking boot image with ${KERNEL_NAME} ${VERSION_NAME} ($
 ui_print "     - Linux kernel: v$kver (MT6785 / Helio G90T)";
 ui_print "     - Low-battery call reboot fix: active";
 ui_print "     - Low-battery lag/throttling fix: active";
+ui_print "     - Smart Battery Guard: Direct-Power Bypass & 39C Thermal Protection";
 ui_print "     - APatch / KernelPatch KALLSYMS: enabled";
 ui_print "     - iOS-Style Compressed Memory: watermark=200, vfs=50, cluster=0";
 ui_print "     - iOS TrueColor Display Engine: D65 Liquid Retina reference active";
