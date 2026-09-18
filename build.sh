@@ -397,14 +397,14 @@ RC_EOF
 # Triggers full gaming performance optimizations and color profiles
 
 on boot
-    chmod 0664 /proc/perfmgr/gaming_mode
+    chmod 0666 /proc/perfmgr/gaming_mode
     chmod 0664 /sys/kernel/gaming_mode
-    chmod 0664 /proc/perfmgr/color_mode
+    chmod 0666 /proc/perfmgr/color_mode
     chmod 0664 /sys/kernel/color_mode
-    chmod 0664 /sys/module/ged/parameters/gx_game_mode
-    chmod 0664 /sys/module/ged/parameters/gx_boost_on
-    chmod 0664 /sys/module/ged/parameters/boost_gpu_enable
-    chmod 0664 /sys/module/ged/parameters/gx_force_cpu_boost
+    chmod 0666 /sys/module/ged/parameters/gx_game_mode
+    chmod 0666 /sys/module/ged/parameters/gx_boost_on
+    chmod 0666 /sys/module/ged/parameters/boost_gpu_enable
+    chmod 0666 /sys/module/ged/parameters/gx_force_cpu_boost
     write /sys/module/ged/parameters/boost_gpu_enable 1
     write /proc/perfmgr/color_mode 1
 
