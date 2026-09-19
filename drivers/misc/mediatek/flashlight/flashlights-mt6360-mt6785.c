@@ -881,10 +881,15 @@ int pox_torch_brightness_set(int value)
 }
 EXPORT_SYMBOL(pox_torch_brightness_set);
 
+#include <linux/capability.h>
+
 static ssize_t torchbrightness_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
 {
 	int value;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
 
 	if (kstrtoint(buf, 0, &value))
 		return -EINVAL;
@@ -901,12 +906,11 @@ static ssize_t torchbrightness_show(struct device *dev,
 }
 
 /*
- * World-writable torch brightness node. Expose the knob to unprivileged writers
- * (apps can now set torch brightness directly, no su/Magisk needed);
- * reads stay world-readable. Writes are graded and clamped in pox_torch_brightness_set().
+ * Hardware-graded torch brightness node. Writes are gated behind CAP_SYS_ADMIN
+ * and clamped safely in pox_torch_brightness_set().
  */
 static struct device_attribute dev_attr_torchbrightness = {
-	.attr	= { .name = "torchbrightness", .mode = 0666 },
+	.attr	= { .name = "torchbrightness", .mode = 0644 },
 	.show	= torchbrightness_show,
 	.store	= torchbrightness_store,
 };

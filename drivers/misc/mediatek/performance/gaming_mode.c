@@ -19,6 +19,7 @@
 #include <linux/string.h>
 #include <linux/ctype.h>
 #include <linux/workqueue.h>
+#include <linux/capability.h>
 
 #include "gaming_mode.h"
 
@@ -397,6 +398,9 @@ static ssize_t gaming_mode_proc_write(struct file *file, const char __user *ubuf
 	int val = 0;
 	size_t len;
 
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
 	len = min(count, sizeof(buf) - 1);
 	if (copy_from_user(buf, ubuf, len))
 		return -EFAULT;
@@ -464,6 +468,9 @@ static ssize_t color_mode_proc_write(struct file *file, const char __user *ubuf,
 	int val = 0;
 	size_t len;
 
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
 	len = min(count, sizeof(buf) - 1);
 	if (copy_from_user(buf, ubuf, len))
 		return -EFAULT;
@@ -523,6 +530,9 @@ static ssize_t hbm_mode_proc_write(struct file *file, const char __user *ubuf,
 	int val = 0;
 	size_t len;
 
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
 	len = min(count, sizeof(buf) - 1);
 	if (copy_from_user(buf, ubuf, len))
 		return -EFAULT;
@@ -577,6 +587,9 @@ static ssize_t torch_brightness_proc_write(struct file *file, const char __user 
 	char buf[16];
 	int val = 0;
 	size_t len;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
 
 	if (count == 0)
 		return 0;
@@ -723,14 +736,23 @@ static ssize_t camera_4k60_proc_write(struct file *file, const char __user *ubuf
 {
 	char buf[16];
 	int val = 0;
+	size_t len;
 
-	if (count >= sizeof(buf))
-		return -EINVAL;
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
 
-	if (copy_from_user(buf, ubuf, count))
+	if (count == 0)
+		return 0;
+
+	len = min(count, sizeof(buf) - 1);
+	if (copy_from_user(buf, ubuf, len))
 		return -EFAULT;
 
-	buf[count] = '\0';
+	buf[len] = '\0';
+
+	while (len > 0 && (buf[len - 1] == '\n' || buf[len - 1] == '\r' || isspace(buf[len - 1])))
+		buf[--len] = '\0';
+
 	if (sscanf(buf, "%d", &val) != 1)
 		return -EINVAL;
 
@@ -765,14 +787,23 @@ static ssize_t slog3_proc_write(struct file *file, const char __user *ubuf,
 {
 	char buf[16];
 	int val = 0;
+	size_t len;
 
-	if (count >= sizeof(buf))
-		return -EINVAL;
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
 
-	if (copy_from_user(buf, ubuf, count))
+	if (count == 0)
+		return 0;
+
+	len = min(count, sizeof(buf) - 1);
+	if (copy_from_user(buf, ubuf, len))
 		return -EFAULT;
 
-	buf[count] = '\0';
+	buf[len] = '\0';
+
+	while (len > 0 && (buf[len - 1] == '\n' || buf[len - 1] == '\r' || isspace(buf[len - 1])))
+		buf[--len] = '\0';
+
 	if (sscanf(buf, "%d", &val) != 1)
 		return -EINVAL;
 
@@ -808,6 +839,9 @@ static ssize_t gaming_mode_sysfs_store(struct kobject *kobj,
 {
 	int val = 0;
 
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
 	if (sscanf(buf, "%d", &val) != 1)
 		return -EINVAL;
 
@@ -821,7 +855,7 @@ static ssize_t gaming_mode_sysfs_store(struct kobject *kobj,
 }
 
 static struct kobj_attribute gaming_mode_kobj_attr =
-	__ATTR(gaming_mode, 0664, gaming_mode_sysfs_show, gaming_mode_sysfs_store);
+	__ATTR(gaming_mode, 0644, gaming_mode_sysfs_show, gaming_mode_sysfs_store);
 
 static ssize_t color_mode_sysfs_show(struct kobject *kobj,
 				     struct kobj_attribute *attr, char *buf)
@@ -834,6 +868,9 @@ static ssize_t color_mode_sysfs_store(struct kobject *kobj,
 				      const char *buf, size_t count)
 {
 	int val = 0;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
 
 	if (sscanf(buf, "%d", &val) != 1)
 		return -EINVAL;
@@ -849,10 +886,10 @@ static ssize_t color_mode_sysfs_store(struct kobject *kobj,
 }
 
 static struct kobj_attribute color_mode_kobj_attr =
-	__ATTR(color_mode, 0664, color_mode_sysfs_show, color_mode_sysfs_store);
+	__ATTR(color_mode, 0644, color_mode_sysfs_show, color_mode_sysfs_store);
 
 static struct kobj_attribute camera_profile_kobj_attr =
-	__ATTR(camera_profile, 0664, color_mode_sysfs_show, color_mode_sysfs_store);
+	__ATTR(camera_profile, 0644, color_mode_sysfs_show, color_mode_sysfs_store);
 
 static ssize_t hbm_mode_sysfs_show(struct kobject *kobj,
 				   struct kobj_attribute *attr, char *buf)
@@ -866,6 +903,9 @@ static ssize_t hbm_mode_sysfs_store(struct kobject *kobj,
 {
 	int val = 0;
 
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
 	if (sscanf(buf, "%d", &val) != 1)
 		return -EINVAL;
 
@@ -874,7 +914,7 @@ static ssize_t hbm_mode_sysfs_store(struct kobject *kobj,
 }
 
 static struct kobj_attribute hbm_mode_kobj_attr =
-	__ATTR(hbm_mode, 0664, hbm_mode_sysfs_show, hbm_mode_sysfs_store);
+	__ATTR(hbm_mode, 0644, hbm_mode_sysfs_show, hbm_mode_sysfs_store);
 
 static ssize_t torch_brightness_sysfs_show(struct kobject *kobj,
 					   struct kobj_attribute *attr,
@@ -889,6 +929,9 @@ static ssize_t torch_brightness_sysfs_store(struct kobject *kobj,
 {
 	int val = 0;
 
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
 	if (kstrtoint(buf, 10, &val) < 0)
 		return -EINVAL;
 
@@ -897,10 +940,10 @@ static ssize_t torch_brightness_sysfs_store(struct kobject *kobj,
 }
 
 static struct kobj_attribute torch_brightness_kobj_attr =
-	__ATTR(torch_brightness, 0664, torch_brightness_sysfs_show, torch_brightness_sysfs_store);
+	__ATTR(torch_brightness, 0644, torch_brightness_sysfs_show, torch_brightness_sysfs_store);
 
 static struct kobj_attribute flashlight_brightness_kobj_attr =
-	__ATTR(flashlight_brightness, 0664, torch_brightness_sysfs_show, torch_brightness_sysfs_store);
+	__ATTR(flashlight_brightness, 0644, torch_brightness_sysfs_show, torch_brightness_sysfs_store);
 
 static ssize_t camera_4k60_sysfs_show(struct kobject *kobj,
 				      struct kobj_attribute *attr, char *buf)
@@ -914,6 +957,9 @@ static ssize_t camera_4k60_sysfs_store(struct kobject *kobj,
 {
 	int val = 0;
 
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
 	if (sscanf(buf, "%d", &val) != 1)
 		return -EINVAL;
 
@@ -922,7 +968,7 @@ static ssize_t camera_4k60_sysfs_store(struct kobject *kobj,
 }
 
 static struct kobj_attribute camera_4k60_kobj_attr =
-	__ATTR(camera_4k60, 0664, camera_4k60_sysfs_show, camera_4k60_sysfs_store);
+	__ATTR(camera_4k60, 0644, camera_4k60_sysfs_show, camera_4k60_sysfs_store);
 
 static ssize_t slog3_sysfs_show(struct kobject *kobj,
 				struct kobj_attribute *attr, char *buf)
@@ -936,6 +982,9 @@ static ssize_t slog3_sysfs_store(struct kobject *kobj,
 {
 	int val = 0;
 
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
 	if (sscanf(buf, "%d", &val) != 1)
 		return -EINVAL;
 
@@ -944,7 +993,7 @@ static ssize_t slog3_sysfs_store(struct kobject *kobj,
 }
 
 static struct kobj_attribute slog3_kobj_attr =
-	__ATTR(slog3, 0664, slog3_sysfs_show, slog3_sysfs_store);
+	__ATTR(slog3, 0644, slog3_sysfs_show, slog3_sysfs_store);
 
 /* Battery Protection Rootless ProcFS Interfaces */
 extern int pox_battery_bypass_get(void);
@@ -969,6 +1018,9 @@ static ssize_t battery_bypass_proc_write(struct file *file, const char __user *b
 {
 	char buf[16];
 	int val;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
 
 	if (count >= sizeof(buf))
 		return -EINVAL;
@@ -1007,6 +1059,9 @@ static ssize_t battery_limit_proc_write(struct file *file, const char __user *bu
 {
 	char buf[16];
 	int val;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
 
 	if (count >= sizeof(buf))
 		return -EINVAL;
@@ -1072,6 +1127,9 @@ static ssize_t touch_game_mode_proc_write(struct file *file, const char __user *
 	char buf[16];
 	int val;
 
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
 	if (count >= sizeof(buf))
 		return -EINVAL;
 	if (copy_from_user(buf, buffer, count))
@@ -1109,6 +1167,9 @@ static ssize_t touch_sensitivity_proc_write(struct file *file, const char __user
 {
 	char buf[16];
 	int val;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
 
 	if (count >= sizeof(buf))
 		return -EINVAL;
@@ -1152,6 +1213,9 @@ static ssize_t headphone_gain_proc_write(struct file *file, const char __user *b
 	char buf[16];
 	int val;
 
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
 	if (count >= sizeof(buf))
 		return -EINVAL;
 	if (copy_from_user(buf, buffer, count))
@@ -1193,6 +1257,9 @@ static ssize_t vibrator_strength_proc_write(struct file *file, const char __user
 {
 	char buf[16];
 	int val;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
 
 	if (count >= sizeof(buf))
 		return -EINVAL;
@@ -1236,6 +1303,9 @@ static ssize_t wakelock_blocker_proc_write(struct file *file, const char __user 
 	char buf[16];
 	int val;
 
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
 	if (count >= sizeof(buf))
 		return -EINVAL;
 	if (copy_from_user(buf, buffer, count))
@@ -1277,6 +1347,9 @@ static ssize_t fast_charge_proc_write(struct file *file, const char __user *buff
 {
 	char buf[16];
 	int val;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
 
 	if (count >= sizeof(buf))
 		return -EINVAL;
@@ -1320,6 +1393,9 @@ static ssize_t dt2w_proc_write(struct file *file, const char __user *buffer,
 	char buf[16];
 	int val;
 
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
 	if (count >= sizeof(buf))
 		return -EINVAL;
 	if (copy_from_user(buf, buffer, count))
@@ -1361,6 +1437,9 @@ static ssize_t mic_gain_proc_write(struct file *file, const char __user *buffer,
 {
 	char buf[16];
 	int val;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
 
 	if (count >= sizeof(buf))
 		return -EINVAL;
@@ -1404,6 +1483,9 @@ static ssize_t dynamic_fsync_proc_write(struct file *file, const char __user *bu
 	char buf[16];
 	int val;
 
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
 	if (count >= sizeof(buf))
 		return -EINVAL;
 	if (copy_from_user(buf, buffer, count))
@@ -1437,33 +1519,33 @@ int init_gaming_mode(struct proc_dir_entry *parent)
 
 	INIT_DELAYED_WORK(&pox_cam_boost_decay_work, pox_cam_boost_decay_func);
 
-	entry = proc_create("gaming_mode", 0666, parent, &gaming_mode_proc_fops);
+	entry = proc_create("gaming_mode", 0644, parent, &gaming_mode_proc_fops);
 	if (!entry) {
 		pr_err("Failed to create /proc/perfmgr/gaming_mode\n");
 		return -ENOMEM;
 	}
 
-	entry = proc_create("color_mode", 0666, parent, &color_mode_proc_fops);
+	entry = proc_create("color_mode", 0644, parent, &color_mode_proc_fops);
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/color_mode\n");
 
-	entry = proc_create("camera_profile", 0666, parent, &camera_profile_proc_fops);
+	entry = proc_create("camera_profile", 0644, parent, &camera_profile_proc_fops);
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/camera_profile\n");
 
-	entry = proc_create("camera_4k60", 0666, parent, &camera_4k60_proc_fops);
+	entry = proc_create("camera_4k60", 0644, parent, &camera_4k60_proc_fops);
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/camera_4k60\n");
 
-	entry = proc_create("slog3", 0666, parent, &slog3_proc_fops);
+	entry = proc_create("slog3", 0644, parent, &slog3_proc_fops);
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/slog3\n");
 
-	entry = proc_create("battery_bypass", 0666, parent, &battery_bypass_proc_fops);
+	entry = proc_create("battery_bypass", 0644, parent, &battery_bypass_proc_fops);
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/battery_bypass\n");
 
-	entry = proc_create("battery_limit", 0666, parent, &battery_limit_proc_fops);
+	entry = proc_create("battery_limit", 0644, parent, &battery_limit_proc_fops);
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/battery_limit\n");
 
@@ -1471,51 +1553,51 @@ int init_gaming_mode(struct proc_dir_entry *parent)
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/battery_status\n");
 
-	entry = proc_create("touch_game_mode", 0666, parent, &touch_game_mode_proc_fops);
+	entry = proc_create("touch_game_mode", 0644, parent, &touch_game_mode_proc_fops);
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/touch_game_mode\n");
 
-	entry = proc_create("touch_sensitivity", 0666, parent, &touch_sensitivity_proc_fops);
+	entry = proc_create("touch_sensitivity", 0644, parent, &touch_sensitivity_proc_fops);
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/touch_sensitivity\n");
 
-	entry = proc_create("headphone_gain", 0666, parent, &headphone_gain_proc_fops);
+	entry = proc_create("headphone_gain", 0644, parent, &headphone_gain_proc_fops);
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/headphone_gain\n");
 
-	entry = proc_create("vibrator_strength", 0666, parent, &vibrator_strength_proc_fops);
+	entry = proc_create("vibrator_strength", 0644, parent, &vibrator_strength_proc_fops);
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/vibrator_strength\n");
 
-	entry = proc_create("wakelock_blocker", 0666, parent, &wakelock_blocker_proc_fops);
+	entry = proc_create("wakelock_blocker", 0644, parent, &wakelock_blocker_proc_fops);
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/wakelock_blocker\n");
 
-	entry = proc_create("fast_charge", 0666, parent, &fast_charge_proc_fops);
+	entry = proc_create("fast_charge", 0644, parent, &fast_charge_proc_fops);
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/fast_charge\n");
 
-	entry = proc_create("dt2w", 0666, parent, &dt2w_proc_fops);
+	entry = proc_create("dt2w", 0644, parent, &dt2w_proc_fops);
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/dt2w\n");
 
-	entry = proc_create("mic_gain", 0666, parent, &mic_gain_proc_fops);
+	entry = proc_create("mic_gain", 0644, parent, &mic_gain_proc_fops);
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/mic_gain\n");
 
-	entry = proc_create("dynamic_fsync", 0666, parent, &dynamic_fsync_proc_fops);
+	entry = proc_create("dynamic_fsync", 0644, parent, &dynamic_fsync_proc_fops);
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/dynamic_fsync\n");
 
-	entry = proc_create("hbm_mode", 0666, parent, &hbm_mode_proc_fops);
+	entry = proc_create("hbm_mode", 0644, parent, &hbm_mode_proc_fops);
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/hbm_mode\n");
 
-	entry = proc_create("torch_brightness", 0666, parent, &torch_brightness_proc_fops);
+	entry = proc_create("torch_brightness", 0644, parent, &torch_brightness_proc_fops);
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/torch_brightness\n");
 
-	entry = proc_create("flashlight_brightness", 0666, parent, &torch_brightness_proc_fops);
+	entry = proc_create("flashlight_brightness", 0644, parent, &torch_brightness_proc_fops);
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/flashlight_brightness\n");
 
