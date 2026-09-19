@@ -390,6 +390,10 @@ on boot
     write /proc/sys/net/ipv4/tcp_fastopen 3
     write /proc/sys/net/ipv4/tcp_slow_start_after_idle 0
     write /proc/sys/net/ipv4/tcp_tw_reuse 1
+    write /proc/sys/net/ipv4/tcp_autocorking 0
+    write /proc/sys/net/ipv4/tcp_notsent_lowat 16384
+    write /proc/sys/net/ipv4/tcp_ecn 1
+    write /proc/sys/net/ipv4/tcp_syncookies 1
     write /proc/sys/net/core/netdev_max_backlog 5000
 
 on property:sys.boot_completed=1
@@ -406,6 +410,8 @@ on property:sys.boot_completed=1
     write /proc/sys/vm/extra_free_kbytes 24300
     write /proc/sys/net/core/default_qdisc fq
     write /proc/sys/net/ipv4/tcp_congestion_control bbr
+    write /proc/sys/net/ipv4/tcp_autocorking 0
+    write /proc/sys/net/ipv4/tcp_notsent_lowat 16384
 RC_EOF
     chmod 644 \$RAMDISK/init.memory_enhanced.rc
 
