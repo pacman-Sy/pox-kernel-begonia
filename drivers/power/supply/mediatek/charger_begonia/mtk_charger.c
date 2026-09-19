@@ -1806,7 +1806,8 @@ static int g_battery_bypass_mode = 0;      /* 0 = normal charging, 1 = direct by
 static int g_battery_charge_limit = 100;   /* default 100% (limit disabled, charges to 100) */
 static int g_battery_thermal_guard = 0;    /* 0 = disabled by default (JEITA handles thermal regulation) */
 static int g_battery_temp_limit = 460;     /* 46.0°C thermal ceiling if thermal guard manually enabled */
-static int g_battery_bypass_reason = 0;   /* 0=none, 1=manual, 2=cap_limit, 3=thermal */
+extern int gaming_mode_get(void);
+static int g_battery_bypass_reason = 0;   /* 0=none, 1=manual, 2=cap_limit, 3=thermal, 4=gaming_auto */
 
 static void charger_check_status(struct charger_manager *info)
 {
@@ -1889,8 +1890,11 @@ static void charger_check_status(struct charger_manager *info)
 		} else if (g_battery_charge_limit < 100 && uisoc >= g_battery_charge_limit) {
 			charging = false;
 			g_battery_bypass_reason = 2; /* Charge Limit Cap Reached */
-		} else if (g_battery_bypass_reason == 2 && uisoc > (g_battery_charge_limit - 3)) {
-			charging = false; /* Maintain bypass until 3% hysteresis drop */
+		} else if (g_battery_bypass_reason == 2 && uisoc > (g_battery_charge_limit - 5)) {
+			charging = false; /* Maintain bypass until 5% hysteresis drop */
+		} else if (gaming_mode_get() > 0 && uisoc >= 20) {
+			charging = false;
+			g_battery_bypass_reason = 4; /* Gaming Auto-Bypass (Eliminate Charging Heat) */
 		} else if (g_battery_thermal_guard && temperature >= g_battery_temp_limit) {
 			charging = false;
 			g_battery_bypass_reason = 3; /* Thermal Guard Active */
@@ -3473,6 +3477,8 @@ static ssize_t battery_protect_status_show(struct kobject *kobj, struct kobj_att
 		return sprintf(buf, "CHARGE_LIMIT_REACHED (RUNNING ON CHARGER, CAP %d%%)\n", g_battery_charge_limit);
 	if (g_battery_bypass_reason == 3)
 		return sprintf(buf, "THERMAL_GUARD_ACTIVE (RUNNING ON CHARGER, TEMP >= %dC)\n", g_battery_temp_limit / 10);
+	if (g_battery_bypass_reason == 4)
+		return sprintf(buf, "GAMING_AUTO_BYPASS (RUNNING ON CHARGER, PREVENTING GAME HEAT)\n");
 	return sprintf(buf, "CHARGING (FAST/NORMAL)\n");
 }
 
@@ -3516,6 +3522,8 @@ int pox_battery_status_get(char *buf, size_t size)
 		return scnprintf(buf, size, "CHARGE_LIMIT_REACHED (RUNNING ON CHARGER, CAP %d%%)\n", g_battery_charge_limit);
 	if (g_battery_bypass_reason == 3)
 		return scnprintf(buf, size, "THERMAL_GUARD_ACTIVE (RUNNING ON CHARGER, TEMP >= %dC)\n", g_battery_temp_limit / 10);
+	if (g_battery_bypass_reason == 4)
+		return scnprintf(buf, size, "GAMING_AUTO_BYPASS (RUNNING ON CHARGER, PREVENTING GAME HEAT)\n");
 	return scnprintf(buf, size, "CHARGING (FAST/NORMAL)\n");
 }
 EXPORT_SYMBOL(pox_battery_status_get);

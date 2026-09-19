@@ -427,50 +427,51 @@ RC_EOF
 # Triggers full gaming performance optimizations and color profiles
 
 on boot
-    chmod 0666 /proc/perfmgr/gaming_mode
-    chmod 0664 /sys/kernel/gaming_mode
-    chmod 0666 /proc/perfmgr/color_mode
-    chmod 0664 /sys/kernel/color_mode
-    chmod 0666 /proc/perfmgr/hbm_mode
-    chmod 0664 /sys/kernel/hbm_mode
-    chmod 0666 /proc/perfmgr/torch_brightness
-    chmod 0666 /proc/perfmgr/flashlight_brightness
+    chmod 0644 /proc/perfmgr/gaming_mode
+    chmod 0644 /sys/kernel/gaming_mode
+    chmod 0644 /proc/perfmgr/color_mode
+    chmod 0644 /sys/kernel/color_mode
+    chmod 0644 /proc/perfmgr/hbm_mode
+    chmod 0644 /sys/kernel/hbm_mode
+    chmod 0644 /proc/perfmgr/torch_brightness
+    chmod 0644 /proc/perfmgr/flashlight_brightness
     chmod 0444 /proc/perfmgr/torch_info
-    chmod 0664 /sys/kernel/torch_brightness
-    chmod 0664 /sys/kernel/flashlight_brightness
-    chmod 0666 /sys/class/leds/torch-light0/brightness
-    chmod 0666 /sys/class/leds/torch-light1/brightness
-    chmod 0666 /sys/class/leds/torch-light2/brightness
-    chmod 0666 /sys/class/leds/flashlight/brightness
-    chmod 0666 /proc/perfmgr/camera_profile
-    chmod 0664 /sys/kernel/camera_profile
-    chmod 0666 /proc/perfmgr/camera_4k60
-    chmod 0664 /sys/kernel/camera_4k60
-    chmod 0666 /proc/perfmgr/slog3
-    chmod 0664 /sys/kernel/slog3
-    chmod 0666 /proc/perfmgr/touch_game_mode
-    chmod 0666 /proc/perfmgr/touch_sensitivity
-    chmod 0664 /sys/class/touch/touch_dev/touch_game_mode
-    chmod 0664 /sys/class/touch/touch_dev/touch_sensitivity
-    chmod 0666 /proc/perfmgr/headphone_gain
-    chmod 0664 /sys/kernel/sound_control/headphone_gain
-    chmod 0666 /proc/perfmgr/mic_gain
-    chmod 0664 /sys/kernel/sound_control/mic_gain
-    chmod 0666 /proc/perfmgr/vibrator_strength
-    chmod 0666 /proc/perfmgr/wakelock_blocker
-    chmod 0666 /proc/perfmgr/fast_charge
-    chmod 0666 /proc/perfmgr/dt2w
-    chmod 0664 /sys/android_touch/doubletap2wake
-    chmod 0666 /proc/perfmgr/dynamic_fsync
-    chmod 0664 /sys/kernel/dynamic_fsync/dynamic_fsync
-    chmod 0666 /sys/module/task_turbo/parameters/feats
-    chmod 0666 /proc/perfmgr/battery_bypass
-    chmod 0666 /proc/perfmgr/battery_limit
+    chmod 0444 /proc/perfmgr/profile
+    chmod 0644 /sys/kernel/torch_brightness
+    chmod 0644 /sys/kernel/flashlight_brightness
+    chmod 0644 /sys/class/leds/torch-light0/brightness
+    chmod 0644 /sys/class/leds/torch-light1/brightness
+    chmod 0644 /sys/class/leds/torch-light2/brightness
+    chmod 0644 /sys/class/leds/flashlight/brightness
+    chmod 0644 /proc/perfmgr/camera_profile
+    chmod 0644 /sys/kernel/camera_profile
+    chmod 0644 /proc/perfmgr/camera_4k60
+    chmod 0644 /sys/kernel/camera_4k60
+    chmod 0644 /proc/perfmgr/slog3
+    chmod 0644 /sys/kernel/slog3
+    chmod 0644 /proc/perfmgr/touch_game_mode
+    chmod 0644 /proc/perfmgr/touch_sensitivity
+    chmod 0644 /sys/class/touch/touch_dev/touch_game_mode
+    chmod 0644 /sys/class/touch/touch_dev/touch_sensitivity
+    chmod 0644 /proc/perfmgr/headphone_gain
+    chmod 0644 /sys/kernel/sound_control/headphone_gain
+    chmod 0644 /proc/perfmgr/mic_gain
+    chmod 0644 /sys/kernel/sound_control/mic_gain
+    chmod 0644 /proc/perfmgr/vibrator_strength
+    chmod 0644 /proc/perfmgr/wakelock_blocker
+    chmod 0644 /proc/perfmgr/fast_charge
+    chmod 0644 /proc/perfmgr/dt2w
+    chmod 0644 /sys/android_touch/doubletap2wake
+    chmod 0644 /proc/perfmgr/dynamic_fsync
+    chmod 0644 /sys/kernel/dynamic_fsync/dynamic_fsync
+    chmod 0644 /sys/module/task_turbo/parameters/feats
+    chmod 0644 /proc/perfmgr/battery_bypass
+    chmod 0644 /proc/perfmgr/battery_limit
     chmod 0444 /proc/perfmgr/battery_status
-    chmod 0666 /sys/module/ged/parameters/gx_game_mode
-    chmod 0666 /sys/module/ged/parameters/gx_boost_on
-    chmod 0666 /sys/module/ged/parameters/boost_gpu_enable
-    chmod 0666 /sys/module/ged/parameters/gx_force_cpu_boost
+    chmod 0644 /sys/module/ged/parameters/gx_game_mode
+    chmod 0644 /sys/module/ged/parameters/gx_boost_on
+    chmod 0644 /sys/module/ged/parameters/boost_gpu_enable
+    chmod 0644 /sys/module/ged/parameters/gx_force_cpu_boost
     write /sys/module/ged/parameters/boost_gpu_enable 1
     write /proc/perfmgr/color_mode 1
     write /proc/perfmgr/wakelock_blocker 1
@@ -616,7 +617,7 @@ ui_print " [*] [3/4] Repacking boot image with ${KERNEL_NAME} ${VERSION_NAME} ($
 ui_print "     - Linux kernel: v$kver (MT6785 / Helio G90T)";
 ui_print "     - Low-battery call reboot fix: active";
 ui_print "     - Smart Battery Guard: Direct-Power Bypass & 39C Thermal Protection";
-ui_print "     - Rootless Bypass Control: /proc/perfmgr/battery_bypass (0666)";
+ui_print "     - Hardware Bypass Control: /proc/perfmgr/battery_bypass (0644)";
 ui_print "     - Hardware 240Hz Touch Gaming Mode: zero-debounce sampling active";
 ui_print "     - Hardware Double-Tap to Wake: /proc/perfmgr/dt2w & /sys/android_touch";
 ui_print "     - MediaTek Task-Turbo: UI RenderThread, Binder & BigCore boost";

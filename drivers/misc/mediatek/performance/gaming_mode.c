@@ -38,6 +38,8 @@ extern int boost_write_for_perf_idx(int idx, int boost_value);
 extern int prefer_idle_for_perf_idx(int idx, int prefer_idle);
 extern int set_ios_color_mode(int mode);
 extern int get_ios_color_mode(void);
+extern int pox_dynamic_fsync_get(void);
+extern void pox_dynamic_fsync_set(int enable);
 
 static int gaming_mode_state = GAMING_MODE_DISABLED;
 static int user_color_mode_override = -1;
@@ -182,7 +184,7 @@ int gaming_mode_set(int mode)
 		/* 2. Schedutil Instantaneous Ramp */
 		schedutil_set_up_rate_limit_us(0, 500);     /* Cluster 0 (A55): 500us ramp */
 		schedutil_set_down_rate_limit_us(0, 20000); /* 20ms hold prevents inter-frame drops */
-		schedutil_set_up_rate_limit_us(6, 500);     /* Cluster 1 (A76): 500us ramp */
+		schedutil_set_up_rate_limit_us(6, 200);     /* Cluster 1 (A76): 200us instant ramp */
 		schedutil_set_down_rate_limit_us(6, 20000); /* 20ms hold */
 
 		/* 3. Mali-G76 MC4 GPU & GED Instant Boost */
@@ -271,8 +273,16 @@ int gaming_mode_set(int mode)
 			set_capacity_margin(1126);
 		}
 
+		/* Auto-disarm dynamic fsync on powersave to guarantee database durability */
+		if (pox_dynamic_fsync_get())
+			pox_dynamic_fsync_set(0);
+
 		pr_info("Ultra Power Saver Profile engaged: Maximum battery preservation.\n");
 	} else {
+		/* Auto-disarm dynamic fsync on exit from gaming mode */
+		if (pox_dynamic_fsync_get())
+			pox_dynamic_fsync_set(0);
+
 		pr_info("Deactivating Gaming Mode: Restoring Balanced Profile...\n");
 
 		/* 1. Restore FPSGO Defaults */
@@ -1425,6 +1435,66 @@ static const struct file_operations dynamic_fsync_proc_fops = {
 	.release = single_release,
 };
 
+/* Unified Observability Hardware Profile Meta-Node (Section 10) */
+static int profile_proc_show(struct seq_file *m, void *v)
+{
+	char bat_buf[128];
+	int g_mode = gaming_mode_get();
+	int c_mode = get_ios_color_mode();
+	int h_mode = hbm_mode_get();
+	int t_bri = torch_brightness_get();
+	int dt2w = pox_dt2w_get();
+	int dyn_fsync = pox_dynamic_fsync_get();
+	int hp_gain = pox_headphone_gain_get();
+	int mic_gain = pox_mic_gain_get();
+	int vib_str = pox_vibrator_strength_get();
+	int t_game = pox_touch_game_mode_get();
+	int t_sens = pox_touch_sensitivity_get();
+	int cam_4k = camera_4k60_get();
+	int cam_slog = camera_slog3_get();
+	int wl_blk = pox_wakelock_blocker_get();
+	int fast_chg = pox_fast_charge_get();
+
+	pox_battery_status_get(bat_buf, sizeof(bat_buf));
+	strim(bat_buf);
+
+	seq_printf(m, "=== POX KERNEL HARDWARE PROFILE ===\n");
+	seq_printf(m, "gaming_mode: %d (%s)\n", g_mode,
+		   g_mode == 2 ? "EXTREME" : (g_mode == 1 ? "GAMING" : (g_mode == -1 ? "POWERSAVE" : "BALANCED")));
+	seq_printf(m, "color_mode: %d (%s)\n", c_mode,
+		   c_mode == 3 ? "SLOG3" : (c_mode == 2 ? "VIVID" : (c_mode == 1 ? "REFERENCE" : "STANDARD")));
+	seq_printf(m, "hbm_mode: %d (%s)\n", h_mode,
+		   h_mode == 3 ? "L3_PEAK" : (h_mode == 2 ? "L2_HIGH" : (h_mode == 1 ? "L1_BOOST" : "OFF")));
+	seq_printf(m, "touch_game_mode: %d\n", t_game);
+	seq_printf(m, "touch_sensitivity: %d\n", t_sens);
+	seq_printf(m, "double_tap_to_wake: %d\n", dt2w);
+	seq_printf(m, "battery_status: %s\n", bat_buf);
+	seq_printf(m, "battery_limit: %d%%\n", pox_battery_limit_get());
+	seq_printf(m, "fast_charge: %d\n", fast_chg);
+	seq_printf(m, "headphone_gain: +%ddB\n", hp_gain);
+	seq_printf(m, "mic_gain: %d\n", mic_gain);
+	seq_printf(m, "vibrator_strength: 0x%02X\n", vib_str);
+	seq_printf(m, "torch_brightness: %d\n", t_bri);
+	seq_printf(m, "dynamic_fsync: %d\n", dyn_fsync);
+	seq_printf(m, "camera_4k60: %d\n", cam_4k);
+	seq_printf(m, "camera_slog3: %d\n", cam_slog);
+	seq_printf(m, "wakelock_blocker: %d\n", wl_blk);
+	return 0;
+}
+
+static int profile_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, profile_proc_show, NULL);
+}
+
+static const struct file_operations profile_proc_fops = {
+	.owner   = THIS_MODULE,
+	.open    = profile_proc_open,
+	.read    = seq_read,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
+
 /* ------------------ Init Function ------------------ */
 
 int init_gaming_mode(struct proc_dir_entry *parent)
@@ -1522,6 +1592,10 @@ int init_gaming_mode(struct proc_dir_entry *parent)
 	entry = proc_create("torch_info", 0444, parent, &torch_info_proc_fops);
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/torch_info\n");
+
+	entry = proc_create("profile", 0444, parent, &profile_proc_fops);
+	if (!entry)
+		pr_warn("Failed to create /proc/perfmgr/profile\n");
 
 	ret = sysfs_create_file(kernel_kobj, &gaming_mode_kobj_attr.attr);
 	if (ret)
