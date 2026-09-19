@@ -211,7 +211,7 @@ int gaming_mode_set(int mode)
 			extern int pox_touch_game_mode_set(int enable);
 			extern int pox_touch_sensitivity_set(int val);
 			pox_touch_game_mode_set(1);
-			pox_touch_sensitivity_set(1);
+			pox_touch_sensitivity_set(2);
 		}
 
 		/* 9. EAS Schedutil Headroom Margin: 32% headroom */
