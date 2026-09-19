@@ -130,6 +130,36 @@ void pox_camera_launch_boost(int enable)
 }
 EXPORT_SYMBOL(pox_camera_launch_boost);
 
+extern int pox_lm36273_hbm_set(int mode);
+extern int pox_lm36273_hbm_get(void);
+
+int hbm_mode_set(int mode)
+{
+	return pox_lm36273_hbm_set(mode);
+}
+EXPORT_SYMBOL(hbm_mode_set);
+
+int hbm_mode_get(void)
+{
+	return pox_lm36273_hbm_get();
+}
+EXPORT_SYMBOL(hbm_mode_get);
+
+extern int pox_torch_brightness_set(int val);
+extern int pox_torch_brightness_get(void);
+
+int torch_brightness_set(int val)
+{
+	return pox_torch_brightness_set(val);
+}
+EXPORT_SYMBOL(torch_brightness_set);
+
+int torch_brightness_get(void)
+{
+	return pox_torch_brightness_get();
+}
+EXPORT_SYMBOL(torch_brightness_get);
+
 int gaming_mode_set(int mode)
 {
 	mutex_lock(&gaming_mode_lock);
@@ -191,6 +221,57 @@ int gaming_mode_set(int mode)
 		}
 
 		pr_info("Gaming Mode activated: Zero frame-drop profile engaged.\n");
+	} else if (mode == GAMING_MODE_POWERSAVE) {
+		pr_info("Activating Ultra Power Saver Profile (level -1)...\n");
+
+		/* 1. Low-Power FPSGO */
+		fbt_cpu_set_ultra_rescue(0);
+		fbt_cpu_set_rescue_percent(50);
+		fbt_cpu_set_variance(50);
+		fbt_cpu_set_bhr(0);
+		fbt_cpu_set_rescue_opp_c(15);
+
+		/* 2. Schedutil Debounced Ramp-Up & Fast Down */
+		schedutil_set_up_rate_limit_us(0, 2000);   /* 2ms debounce on Little A55 */
+		schedutil_set_down_rate_limit_us(0, 2000);
+		schedutil_set_up_rate_limit_us(6, 5000);   /* 5ms debounce before Big A76 */
+		schedutil_set_down_rate_limit_us(6, 1000); /* Fast return to idle */
+
+		/* 3. Disable GPU Boost & Margin */
+		ged_kpi_set_gaming_boost(0);
+		ged_dvfs_set_gaming_boost(0);
+
+		/* 4. PPM COBRA Power-First Hint */
+		eara_pass_perf_first_hint(0);
+
+		/* 5. Minimal SchedTune QoS */
+		boost_write_for_perf_idx(3, 0);
+		prefer_idle_for_perf_idx(3, 0);
+		boost_write_for_perf_idx(1, 0);
+		prefer_idle_for_perf_idx(1, 0);
+
+		/* 6. Display Engine: Standard / Calibrated D65 */
+		if (user_color_mode_override < 0)
+			set_ios_color_mode(COLOR_MODE_REFERENCE);
+
+		/* 7. Release DRAM Boost */
+		fbt_boost_dram(0);
+
+		/* 8. Restore Touchscreen Low-Power */
+		{
+			extern int pox_touch_game_mode_set(int enable);
+			extern int pox_touch_sensitivity_set(int val);
+			pox_touch_game_mode_set(0);
+			pox_touch_sensitivity_set(0);
+		}
+
+		/* 9. EAS Schedutil Headroom Margin: 10% minimal headroom, packing tasks on A55 Little cores */
+		{
+			extern void set_capacity_margin(unsigned int margin);
+			set_capacity_margin(1126);
+		}
+
+		pr_info("Ultra Power Saver Profile engaged: Maximum battery preservation.\n");
 	} else {
 		pr_info("Deactivating Gaming Mode: Restoring Balanced Profile...\n");
 
@@ -201,11 +282,11 @@ int gaming_mode_set(int mode)
 		fbt_cpu_set_bhr(5);
 		fbt_cpu_set_rescue_opp_c(15); /* Default ceiling OPP */
 
-		/* 2. Restore Schedutil Defaults */
-		schedutil_set_up_rate_limit_us(0, 1000);
-		schedutil_set_down_rate_limit_us(0, 1000);
-		schedutil_set_up_rate_limit_us(6, 1000);
-		schedutil_set_down_rate_limit_us(6, 1000);
+		/* 2. Restore Schedutil Defaults (500us ramp-up, 10ms anti-jitter hold) */
+		schedutil_set_up_rate_limit_us(0, 500);
+		schedutil_set_down_rate_limit_us(0, 10000);
+		schedutil_set_up_rate_limit_us(6, 500);
+		schedutil_set_down_rate_limit_us(6, 10000);
 
 		/* 3. Restore GED GPU Defaults */
 		ged_kpi_set_gaming_boost(0);
@@ -274,21 +355,26 @@ static int gaming_mode_proc_show(struct seq_file *m, void *v)
 		seq_printf(m, "status: EXTREME GAMING MODE (Locked Max DRAM OPP + Zero Frame Drops)\n");
 	else if (state == GAMING_MODE_ENABLED)
 		seq_printf(m, "status: GAMING MODE ACTIVE (Zero Frame Drops Enabled)\n");
+	else if (state == GAMING_MODE_POWERSAVE)
+		seq_printf(m, "status: ULTRA POWER SAVER PROFILE (10%% Headroom + Little Core Affinity + Max Battery)\n");
 	else
 		seq_printf(m, "status: BALANCED PROFILE (iOS Fluidity & Real Colors Active)\n");
 
 	seq_printf(m, "features:\n");
-	seq_printf(m, "  - ultra_rescue: %s\n", state ? "enabled (DRAM boost on hitch)" : "disabled");
-	seq_printf(m, "  - rescue_percent: %d%%\n", state ? 20 : 33);
-	seq_printf(m, "  - variance_sensitivity: %d\n", state ? 15 : 40);
-	seq_printf(m, "  - big_core_hold_rate (bhr): %d\n", state ? 15 : 5);
-	seq_printf(m, "  - schedutil_ramp_up: %d us\n", state ? 500 : 1000);
-	seq_printf(m, "  - schedutil_hold_down: %d us\n", state ? 20000 : 1000);
-	seq_printf(m, "  - gpu_touch_boost: %s\n", state ? "enabled" : "disabled");
-	seq_printf(m, "  - gpu_dvfs_margin: %s\n", state ? "+20% (PERF)" : "default");
-	seq_printf(m, "  - ppm_cobra_budget: %s\n", state ? "Performance-First (A76 prioritized)" : "Balanced");
-	seq_printf(m, "  - top_app_boost: %d%%\n", state ? 20 : 5);
-	seq_printf(m, "  - top_app_prefer_idle: enabled\n");
+	seq_printf(m, "  - ultra_rescue: %s\n", (state > 0) ? "enabled (DRAM boost on hitch)" : "disabled");
+	seq_printf(m, "  - rescue_percent: %d%%\n", (state > 0) ? 20 : (state < 0 ? 50 : 33));
+	seq_printf(m, "  - variance_sensitivity: %d\n", (state > 0) ? 15 : (state < 0 ? 50 : 40));
+	seq_printf(m, "  - big_core_hold_rate (bhr): %d\n", (state > 0) ? 15 : (state < 0 ? 0 : 5));
+	seq_printf(m, "  - schedutil_ramp_up: %d us\n", (state > 0) ? 500 : (state < 0 ? 2000 : 500));
+	seq_printf(m, "  - schedutil_hold_down: %d us\n", (state > 0) ? 20000 : (state < 0 ? 2000 : 10000));
+	seq_printf(m, "  - gpu_touch_boost: %s\n", (state > 0) ? "enabled" : (state < 0 ? "powersave" : "balanced"));
+	seq_printf(m, "  - gpu_dvfs_margin: %s\n", (state > 0) ? "+20% (PERF)" : "default");
+	seq_printf(m, "  - ppm_cobra_budget: %s\n", (state > 0) ? "Performance-First (A76 prioritized)" : (state < 0 ? "Power-First (A55 Little packed)" : "Balanced"));
+	seq_printf(m, "  - top_app_boost: %d%%\n", (state > 0) ? 20 : (state < 0 ? 0 : 5));
+	seq_printf(m, "  - eas_capacity_margin: %d (%d%% headroom)\n",
+		(state > 0) ? 1350 : (state < 0 ? 1126 : 1280),
+		(state > 0) ? 32 : (state < 0 ? 10 : 25));
+	seq_printf(m, "  - top_app_prefer_idle: %s\n", (state < 0) ? "disabled (pack to Little)" : "enabled");
 	seq_printf(m, "  - color_mode: %d (%s)\n", color_st,
 		(color_st == COLOR_MODE_SLOG3) ? "Sony S-Log3 / Cinema Flat Profile (LUT Grading)" :
 		(color_st == COLOR_MODE_VIVID) ? "iOS Vivid / Gaming Cinema" :
@@ -325,6 +411,10 @@ static ssize_t gaming_mode_proc_write(struct file *file, const char __user *ubuf
 		val = GAMING_MODE_ENABLED;
 	} else if (strcasecmp(buf, "2") == 0 || strcasecmp(buf, "extreme") == 0) {
 		val = GAMING_MODE_EXTREME;
+	} else if (strcasecmp(buf, "-1") == 0 || strcasecmp(buf, "powersave") == 0 ||
+		   strcasecmp(buf, "power_save") == 0 || strcasecmp(buf, "saver") == 0 ||
+		   strcasecmp(buf, "battery") == 0) {
+		val = GAMING_MODE_POWERSAVE;
 	} else if (strcasecmp(buf, "0") == 0 || strcasecmp(buf, "off") == 0 ||
 		   strcasecmp(buf, "disable") == 0 || strcasecmp(buf, "false") == 0) {
 		val = GAMING_MODE_DISABLED;
@@ -405,6 +495,169 @@ static const struct file_operations color_mode_proc_fops = {
 	.open    = color_mode_proc_open,
 	.read    = seq_read,
 	.write   = color_mode_proc_write,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
+
+static int hbm_mode_proc_show(struct seq_file *m, void *v)
+{
+	int mode = hbm_mode_get();
+
+	seq_printf(m, "hbm_mode: %d\n", mode);
+	if (mode == HBM_MODE_L3)
+		seq_printf(m, "status: SUNLIGHT HBM LEVEL 3 (27.5mA Peak Overdrive ~550+ nits)\n");
+	else if (mode == HBM_MODE_L2)
+		seq_printf(m, "status: SUNLIGHT HBM LEVEL 2 (25.3mA High Brightness ~500 nits)\n");
+	else if (mode == HBM_MODE_L1)
+		seq_printf(m, "status: SUNLIGHT HBM LEVEL 1 (22.0mA Daylight Boost ~450 nits)\n");
+	else
+		seq_printf(m, "status: NORMAL / AUTO (Standard Backlight Curve 0..2047)\n");
+
+	return 0;
+}
+
+static ssize_t hbm_mode_proc_write(struct file *file, const char __user *ubuf,
+				   size_t count, loff_t *ppos)
+{
+	char buf[16];
+	int val = 0;
+	size_t len;
+
+	len = min(count, sizeof(buf) - 1);
+	if (copy_from_user(buf, ubuf, len))
+		return -EFAULT;
+	buf[len] = '\0';
+
+	while (len > 0 && (buf[len - 1] == '\n' || buf[len - 1] == '\r' || isspace(buf[len - 1])))
+		buf[--len] = '\0';
+
+	if (strcasecmp(buf, "3") == 0 || strcasecmp(buf, "max") == 0 ||
+	    strcasecmp(buf, "overdrive") == 0 || strcasecmp(buf, "l3") == 0) {
+		val = HBM_MODE_L3;
+	} else if (strcasecmp(buf, "2") == 0 || strcasecmp(buf, "l2") == 0) {
+		val = HBM_MODE_L2;
+	} else if (strcasecmp(buf, "1") == 0 || strcasecmp(buf, "l1") == 0 ||
+		   strcasecmp(buf, "on") == 0 || strcasecmp(buf, "enable") == 0) {
+		val = HBM_MODE_L1;
+	} else if (strcasecmp(buf, "0") == 0 || strcasecmp(buf, "off") == 0 ||
+		   strcasecmp(buf, "disable") == 0) {
+		val = HBM_MODE_OFF;
+	} else {
+		if (kstrtoint(buf, 10, &val) < 0)
+			return -EINVAL;
+	}
+
+	hbm_mode_set(val);
+	return count;
+}
+
+static int hbm_mode_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, hbm_mode_proc_show, NULL);
+}
+
+static const struct file_operations hbm_mode_proc_fops = {
+	.owner   = THIS_MODULE,
+	.open    = hbm_mode_proc_open,
+	.read    = seq_read,
+	.write   = hbm_mode_proc_write,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
+
+static int torch_brightness_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d\n", torch_brightness_get());
+	return 0;
+}
+
+static ssize_t torch_brightness_proc_write(struct file *file, const char __user *ubuf,
+					   size_t count, loff_t *ppos)
+{
+	char buf[16];
+	int val = 0;
+	size_t len;
+
+	if (count == 0)
+		return 0;
+
+	len = min(count, sizeof(buf) - 1);
+	if (copy_from_user(buf, ubuf, len))
+		return -EFAULT;
+
+	buf[len] = '\0';
+
+	while (len > 0 && (buf[len - 1] == '\n' || buf[len - 1] == '\r' || isspace(buf[len - 1])))
+		buf[--len] = '\0';
+
+	if (strcasecmp(buf, "on") == 0 || strcasecmp(buf, "enable") == 0 ||
+	    strcasecmp(buf, "true") == 0) {
+		val = 10;
+	} else if (strcasecmp(buf, "off") == 0 || strcasecmp(buf, "disable") == 0 ||
+		   strcasecmp(buf, "false") == 0) {
+		val = 0;
+	} else {
+		if (kstrtoint(buf, 10, &val) < 0)
+			return -EINVAL;
+	}
+
+	torch_brightness_set(val);
+	return count;
+}
+
+static int torch_brightness_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, torch_brightness_proc_show, NULL);
+}
+
+static const struct file_operations torch_brightness_proc_fops = {
+	.owner   = THIS_MODULE,
+	.open    = torch_brightness_proc_open,
+	.read    = seq_read,
+	.write   = torch_brightness_proc_write,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
+
+static int torch_info_proc_show(struct seq_file *m, void *v)
+{
+	int val = torch_brightness_get();
+	int sel = 0;
+	int ma = 0;
+
+	if (val > 0) {
+		static const u8 s10[11] = { 0, 0, 2, 4, 6, 9, 12, 15, 18, 21, 24 };
+		if (val <= 10)
+			sel = s10[val];
+		else if (val <= 24)
+			sel = val;
+		else if (val <= 100)
+			sel = (val * 24) / 100;
+		else if (val <= 255)
+			sel = (val * 24) / 255;
+		else
+			sel = 24;
+
+		ma = 25 + (sel * 125) / 10;
+	}
+
+	seq_printf(m, "brightness: %d\n", val);
+	seq_printf(m, "hardware_selector: %d (0..24)\n", sel);
+	seq_printf(m, "current_per_channel: %d mA\n", ma);
+	seq_printf(m, "current_total_dual: %d mA\n", ma * 2);
+	seq_printf(m, "status: %s\n", val > 0 ? "on" : "off");
+	return 0;
+}
+
+static int torch_info_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, torch_info_proc_show, NULL);
+}
+
+static const struct file_operations torch_info_proc_fops = {
+	.owner   = THIS_MODULE,
+	.open    = torch_info_proc_open,
+	.read    = seq_read,
 	.llseek  = seq_lseek,
 	.release = single_release,
 };
@@ -568,7 +821,7 @@ static ssize_t gaming_mode_sysfs_store(struct kobject *kobj,
 }
 
 static struct kobj_attribute gaming_mode_kobj_attr =
-	__ATTR(gaming_mode, 0666, gaming_mode_sysfs_show, gaming_mode_sysfs_store);
+	__ATTR(gaming_mode, 0664, gaming_mode_sysfs_show, gaming_mode_sysfs_store);
 
 static ssize_t color_mode_sysfs_show(struct kobject *kobj,
 				     struct kobj_attribute *attr, char *buf)
@@ -596,10 +849,58 @@ static ssize_t color_mode_sysfs_store(struct kobject *kobj,
 }
 
 static struct kobj_attribute color_mode_kobj_attr =
-	__ATTR(color_mode, 0666, color_mode_sysfs_show, color_mode_sysfs_store);
+	__ATTR(color_mode, 0664, color_mode_sysfs_show, color_mode_sysfs_store);
 
 static struct kobj_attribute camera_profile_kobj_attr =
-	__ATTR(camera_profile, 0666, color_mode_sysfs_show, color_mode_sysfs_store);
+	__ATTR(camera_profile, 0664, color_mode_sysfs_show, color_mode_sysfs_store);
+
+static ssize_t hbm_mode_sysfs_show(struct kobject *kobj,
+				   struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", hbm_mode_get());
+}
+
+static ssize_t hbm_mode_sysfs_store(struct kobject *kobj,
+				    struct kobj_attribute *attr,
+				    const char *buf, size_t count)
+{
+	int val = 0;
+
+	if (sscanf(buf, "%d", &val) != 1)
+		return -EINVAL;
+
+	hbm_mode_set(val);
+	return count;
+}
+
+static struct kobj_attribute hbm_mode_kobj_attr =
+	__ATTR(hbm_mode, 0664, hbm_mode_sysfs_show, hbm_mode_sysfs_store);
+
+static ssize_t torch_brightness_sysfs_show(struct kobject *kobj,
+					   struct kobj_attribute *attr,
+					   char *buf)
+{
+	return sprintf(buf, "%d\n", torch_brightness_get());
+}
+
+static ssize_t torch_brightness_sysfs_store(struct kobject *kobj,
+					    struct kobj_attribute *attr,
+					    const char *buf, size_t count)
+{
+	int val = 0;
+
+	if (kstrtoint(buf, 10, &val) < 0)
+		return -EINVAL;
+
+	torch_brightness_set(val);
+	return count;
+}
+
+static struct kobj_attribute torch_brightness_kobj_attr =
+	__ATTR(torch_brightness, 0664, torch_brightness_sysfs_show, torch_brightness_sysfs_store);
+
+static struct kobj_attribute flashlight_brightness_kobj_attr =
+	__ATTR(flashlight_brightness, 0664, torch_brightness_sysfs_show, torch_brightness_sysfs_store);
 
 static ssize_t camera_4k60_sysfs_show(struct kobject *kobj,
 				      struct kobj_attribute *attr, char *buf)
@@ -621,7 +922,7 @@ static ssize_t camera_4k60_sysfs_store(struct kobject *kobj,
 }
 
 static struct kobj_attribute camera_4k60_kobj_attr =
-	__ATTR(camera_4k60, 0666, camera_4k60_sysfs_show, camera_4k60_sysfs_store);
+	__ATTR(camera_4k60, 0664, camera_4k60_sysfs_show, camera_4k60_sysfs_store);
 
 static ssize_t slog3_sysfs_show(struct kobject *kobj,
 				struct kobj_attribute *attr, char *buf)
@@ -643,7 +944,7 @@ static ssize_t slog3_sysfs_store(struct kobject *kobj,
 }
 
 static struct kobj_attribute slog3_kobj_attr =
-	__ATTR(slog3, 0666, slog3_sysfs_show, slog3_sysfs_store);
+	__ATTR(slog3, 0664, slog3_sysfs_show, slog3_sysfs_store);
 
 /* Battery Protection Rootless ProcFS Interfaces */
 extern int pox_battery_bypass_get(void);
@@ -872,6 +1173,258 @@ static const struct file_operations headphone_gain_proc_fops = {
 	.release = single_release,
 };
 
+/* Vibrator Strength Interface */
+extern int pox_vibrator_strength_get(void);
+extern int pox_vibrator_strength_set(int vol);
+
+static int vibrator_strength_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d\n", pox_vibrator_strength_get());
+	return 0;
+}
+
+static int vibrator_strength_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, vibrator_strength_proc_show, NULL);
+}
+
+static ssize_t vibrator_strength_proc_write(struct file *file, const char __user *buffer,
+					    size_t count, loff_t *pos)
+{
+	char buf[16];
+	int val;
+
+	if (count >= sizeof(buf))
+		return -EINVAL;
+	if (copy_from_user(buf, buffer, count))
+		return -EFAULT;
+	buf[count] = '\0';
+
+	if (sscanf(buf, "%d", &val) != 1)
+		return -EINVAL;
+
+	pox_vibrator_strength_set(val);
+	return count;
+}
+
+static const struct file_operations vibrator_strength_proc_fops = {
+	.open    = vibrator_strength_proc_open,
+	.read    = seq_read,
+	.write   = vibrator_strength_proc_write,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
+
+/* Wakelock Blocker Deep Sleep Interface */
+extern int pox_wakelock_blocker_get(void);
+extern void pox_wakelock_blocker_set(int enable);
+
+static int wakelock_blocker_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d\n", pox_wakelock_blocker_get());
+	return 0;
+}
+
+static int wakelock_blocker_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, wakelock_blocker_proc_show, NULL);
+}
+
+static ssize_t wakelock_blocker_proc_write(struct file *file, const char __user *buffer,
+					   size_t count, loff_t *pos)
+{
+	char buf[16];
+	int val;
+
+	if (count >= sizeof(buf))
+		return -EINVAL;
+	if (copy_from_user(buf, buffer, count))
+		return -EFAULT;
+	buf[count] = '\0';
+
+	if (sscanf(buf, "%d", &val) != 1)
+		return -EINVAL;
+
+	pox_wakelock_blocker_set(val);
+	return count;
+}
+
+static const struct file_operations wakelock_blocker_proc_fops = {
+	.open    = wakelock_blocker_proc_open,
+	.read    = seq_read,
+	.write   = wakelock_blocker_proc_write,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
+
+/* Fast Charge Control Interface */
+extern int pox_fast_charge_get(void);
+extern void pox_fast_charge_set(int enable);
+
+static int fast_charge_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d\n", pox_fast_charge_get());
+	return 0;
+}
+
+static int fast_charge_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, fast_charge_proc_show, NULL);
+}
+
+static ssize_t fast_charge_proc_write(struct file *file, const char __user *buffer,
+				      size_t count, loff_t *pos)
+{
+	char buf[16];
+	int val;
+
+	if (count >= sizeof(buf))
+		return -EINVAL;
+	if (copy_from_user(buf, buffer, count))
+		return -EFAULT;
+	buf[count] = '\0';
+
+	if (sscanf(buf, "%d", &val) != 1)
+		return -EINVAL;
+
+	pox_fast_charge_set(val);
+	return count;
+}
+
+static const struct file_operations fast_charge_proc_fops = {
+	.open    = fast_charge_proc_open,
+	.read    = seq_read,
+	.write   = fast_charge_proc_write,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
+
+/* Double-Tap to Wake Interface */
+extern int pox_dt2w_get(void);
+extern int pox_dt2w_set(int enable);
+
+static int dt2w_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d\n", pox_dt2w_get());
+	return 0;
+}
+
+static int dt2w_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, dt2w_proc_show, NULL);
+}
+
+static ssize_t dt2w_proc_write(struct file *file, const char __user *buffer,
+			       size_t count, loff_t *pos)
+{
+	char buf[16];
+	int val;
+
+	if (count >= sizeof(buf))
+		return -EINVAL;
+	if (copy_from_user(buf, buffer, count))
+		return -EFAULT;
+	buf[count] = '\0';
+
+	if (sscanf(buf, "%d", &val) != 1)
+		return -EINVAL;
+
+	pox_dt2w_set(val);
+	return count;
+}
+
+static const struct file_operations dt2w_proc_fops = {
+	.open    = dt2w_proc_open,
+	.read    = seq_read,
+	.write   = dt2w_proc_write,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
+
+/* Analog Mic Gain Interface */
+extern int pox_mic_gain_get(void);
+extern int pox_mic_gain_set(int gain);
+
+static int mic_gain_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d\n", pox_mic_gain_get());
+	return 0;
+}
+
+static int mic_gain_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mic_gain_proc_show, NULL);
+}
+
+static ssize_t mic_gain_proc_write(struct file *file, const char __user *buffer,
+				   size_t count, loff_t *pos)
+{
+	char buf[16];
+	int val;
+
+	if (count >= sizeof(buf))
+		return -EINVAL;
+	if (copy_from_user(buf, buffer, count))
+		return -EFAULT;
+	buf[count] = '\0';
+
+	if (sscanf(buf, "%d", &val) != 1)
+		return -EINVAL;
+
+	pox_mic_gain_set(val);
+	return count;
+}
+
+static const struct file_operations mic_gain_proc_fops = {
+	.open    = mic_gain_proc_open,
+	.read    = seq_read,
+	.write   = mic_gain_proc_write,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
+
+/* Dynamic Fsync Interface */
+extern int pox_dynamic_fsync_get(void);
+extern void pox_dynamic_fsync_set(int enable);
+
+static int dynamic_fsync_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d\n", pox_dynamic_fsync_get());
+	return 0;
+}
+
+static int dynamic_fsync_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, dynamic_fsync_proc_show, NULL);
+}
+
+static ssize_t dynamic_fsync_proc_write(struct file *file, const char __user *buffer,
+					size_t count, loff_t *pos)
+{
+	char buf[16];
+	int val;
+
+	if (count >= sizeof(buf))
+		return -EINVAL;
+	if (copy_from_user(buf, buffer, count))
+		return -EFAULT;
+	buf[count] = '\0';
+
+	if (sscanf(buf, "%d", &val) != 1)
+		return -EINVAL;
+
+	pox_dynamic_fsync_set(val);
+	return count;
+}
+
+static const struct file_operations dynamic_fsync_proc_fops = {
+	.open    = dynamic_fsync_proc_open,
+	.read    = seq_read,
+	.write   = dynamic_fsync_proc_write,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
+
 /* ------------------ Init Function ------------------ */
 
 int init_gaming_mode(struct proc_dir_entry *parent)
@@ -930,6 +1483,46 @@ int init_gaming_mode(struct proc_dir_entry *parent)
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/headphone_gain\n");
 
+	entry = proc_create("vibrator_strength", 0666, parent, &vibrator_strength_proc_fops);
+	if (!entry)
+		pr_warn("Failed to create /proc/perfmgr/vibrator_strength\n");
+
+	entry = proc_create("wakelock_blocker", 0666, parent, &wakelock_blocker_proc_fops);
+	if (!entry)
+		pr_warn("Failed to create /proc/perfmgr/wakelock_blocker\n");
+
+	entry = proc_create("fast_charge", 0666, parent, &fast_charge_proc_fops);
+	if (!entry)
+		pr_warn("Failed to create /proc/perfmgr/fast_charge\n");
+
+	entry = proc_create("dt2w", 0666, parent, &dt2w_proc_fops);
+	if (!entry)
+		pr_warn("Failed to create /proc/perfmgr/dt2w\n");
+
+	entry = proc_create("mic_gain", 0666, parent, &mic_gain_proc_fops);
+	if (!entry)
+		pr_warn("Failed to create /proc/perfmgr/mic_gain\n");
+
+	entry = proc_create("dynamic_fsync", 0666, parent, &dynamic_fsync_proc_fops);
+	if (!entry)
+		pr_warn("Failed to create /proc/perfmgr/dynamic_fsync\n");
+
+	entry = proc_create("hbm_mode", 0666, parent, &hbm_mode_proc_fops);
+	if (!entry)
+		pr_warn("Failed to create /proc/perfmgr/hbm_mode\n");
+
+	entry = proc_create("torch_brightness", 0666, parent, &torch_brightness_proc_fops);
+	if (!entry)
+		pr_warn("Failed to create /proc/perfmgr/torch_brightness\n");
+
+	entry = proc_create("flashlight_brightness", 0666, parent, &torch_brightness_proc_fops);
+	if (!entry)
+		pr_warn("Failed to create /proc/perfmgr/flashlight_brightness\n");
+
+	entry = proc_create("torch_info", 0444, parent, &torch_info_proc_fops);
+	if (!entry)
+		pr_warn("Failed to create /proc/perfmgr/torch_info\n");
+
 	ret = sysfs_create_file(kernel_kobj, &gaming_mode_kobj_attr.attr);
 	if (ret)
 		pr_warn("Failed to create /sys/kernel/gaming_mode (ret=%d)\n", ret);
@@ -941,6 +1534,24 @@ int init_gaming_mode(struct proc_dir_entry *parent)
 		pr_warn("Failed to create /sys/kernel/color_mode (ret=%d)\n", ret);
 	else
 		pr_info("/sys/kernel/color_mode created successfully\n");
+
+	ret = sysfs_create_file(kernel_kobj, &hbm_mode_kobj_attr.attr);
+	if (ret)
+		pr_warn("Failed to create /sys/kernel/hbm_mode (ret=%d)\n", ret);
+	else
+		pr_info("/sys/kernel/hbm_mode created successfully\n");
+
+	ret = sysfs_create_file(kernel_kobj, &torch_brightness_kobj_attr.attr);
+	if (ret)
+		pr_warn("Failed to create /sys/kernel/torch_brightness (ret=%d)\n", ret);
+	else
+		pr_info("/sys/kernel/torch_brightness created successfully\n");
+
+	ret = sysfs_create_file(kernel_kobj, &flashlight_brightness_kobj_attr.attr);
+	if (ret)
+		pr_warn("Failed to create /sys/kernel/flashlight_brightness (ret=%d)\n", ret);
+	else
+		pr_info("/sys/kernel/flashlight_brightness created successfully\n");
 
 	ret = sysfs_create_file(kernel_kobj, &camera_profile_kobj_attr.attr);
 	if (ret)
