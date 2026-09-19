@@ -61,6 +61,19 @@ int color_mode_get(void)
 }
 EXPORT_SYMBOL(color_mode_get);
 
+int pox_true_tone_set(int enable)
+{
+	user_color_mode_override = enable ? COLOR_MODE_REFERENCE : COLOR_MODE_STANDARD;
+	return set_ios_color_mode(enable ? COLOR_MODE_REFERENCE : COLOR_MODE_STANDARD);
+}
+EXPORT_SYMBOL(pox_true_tone_set);
+
+int pox_true_tone_get(void)
+{
+	return (get_ios_color_mode() == COLOR_MODE_REFERENCE) ? 1 : 0;
+}
+EXPORT_SYMBOL(pox_true_tone_get);
+
 int camera_4k60_set(int force)
 {
 	camera_4k60_force = force ? 1 : 0;
@@ -201,9 +214,7 @@ int gaming_mode_set(int mode)
 		boost_write_for_perf_idx(1, 5);    /* Foreground boost = 5% */
 		prefer_idle_for_perf_idx(1, 1);
 
-		/* 6. Display Engine: Engage iOS Vivid Gaming Cinema HDR profile unless overridden */
-		if (user_color_mode_override < 0)
-			set_ios_color_mode(COLOR_MODE_VIVID);
+		/* 6. Display Engine: True Tone remains default display profile; gaming mode does not alter display calibration */
 
 		/* 7. Extreme Mode: Lock DRAM to Max OPP 0 (2133MHz) */
 		if (mode >= GAMING_MODE_EXTREME)
@@ -253,9 +264,7 @@ int gaming_mode_set(int mode)
 		boost_write_for_perf_idx(1, 0);
 		prefer_idle_for_perf_idx(1, 0);
 
-		/* 6. Display Engine: Standard / Calibrated D65 */
-		if (user_color_mode_override < 0)
-			set_ios_color_mode(COLOR_MODE_REFERENCE);
+		/* 6. Display Engine: True Tone remains default display profile */
 
 		/* 7. Release DRAM Boost */
 		fbt_boost_dram(0);
@@ -312,9 +321,7 @@ int gaming_mode_set(int mode)
 		boost_write_for_perf_idx(1, 0);
 		prefer_idle_for_perf_idx(1, 0);
 
-		/* 6. Display Engine: Restore iOS TrueColor Reference (Calibrated D65) unless overridden */
-		if (user_color_mode_override < 0)
-			set_ios_color_mode(COLOR_MODE_REFERENCE);
+		/* 6. Display Engine: True Tone remains default display profile */
 
 		/* 7. Release DRAM Boost */
 		fbt_boost_dram(0);
@@ -386,10 +393,8 @@ static int gaming_mode_proc_show(struct seq_file *m, void *v)
 		(state > 0) ? 1350 : (state < 0 ? 1126 : 1280),
 		(state > 0) ? 32 : (state < 0 ? 10 : 25));
 	seq_printf(m, "  - top_app_prefer_idle: %s\n", (state < 0) ? "disabled (pack to Little)" : "enabled");
-	seq_printf(m, "  - color_mode: %d (%s)\n", color_st,
-		(color_st == COLOR_MODE_SLOG3) ? "Sony S-Log3 / Cinema Flat Profile (LUT Grading)" :
-		(color_st == COLOR_MODE_VIVID) ? "iOS Vivid / Gaming Cinema" :
-		(color_st == COLOR_MODE_REFERENCE) ? "iOS TrueColor Reference (Calibrated D65)" : "Standard Neutral");
+	seq_printf(m, "  - true_tone: %s (Calibrated D65 Liquid Retina Reference [DEFAULT])\n",
+		(color_st == COLOR_MODE_REFERENCE) ? "active" : "standby");
 	seq_printf(m, "  - video_clock_floor: active (anti-lag enabled)\n");
 	seq_printf(m, "  - display_ddr_floor: LP4-2100 minimum\n");
 	seq_printf(m, "  - cfs_latency: 4 ms (500 us preemption, unscaled)\n");
@@ -463,9 +468,9 @@ static int color_mode_proc_show(struct seq_file *m, void *v)
 	if (mode == COLOR_MODE_SLOG3)
 		seq_printf(m, "status: Sony S-Log3 / Cinema Flat Profile (Logarithmic Dynamic Range for LUT Grading)\n");
 	else if (mode == COLOR_MODE_VIVID)
-		seq_printf(m, "status: iOS Vivid / Gaming Cinema (Enhanced HDR for Games & Movies)\n");
+		seq_printf(m, "status: iOS Vivid / Cinema HDR\n");
 	else if (mode == COLOR_MODE_REFERENCE)
-		seq_printf(m, "status: iOS TrueColor Reference (Calibrated D65 Liquid Retina)\n");
+		seq_printf(m, "status: True Tone / iOS Reference (Calibrated D65 Liquid Retina) [DEFAULT]\n");
 	else
 		seq_printf(m, "status: Standard Neutral\n");
 	return 0;
@@ -512,6 +517,53 @@ static const struct file_operations color_mode_proc_fops = {
 	.open    = color_mode_proc_open,
 	.read    = seq_read,
 	.write   = color_mode_proc_write,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
+
+static int true_tone_proc_show(struct seq_file *m, void *v)
+{
+	int tt = pox_true_tone_get();
+	seq_printf(m, "true_tone: %d\n", tt);
+	seq_printf(m, "status: %s\n", tt ? "enabled (Calibrated D65 Liquid Retina Reference [DEFAULT])" : "disabled (Standard Neutral)");
+	return 0;
+}
+
+static ssize_t true_tone_proc_write(struct file *file, const char __user *ubuf,
+				    size_t count, loff_t *ppos)
+{
+	char buf[16];
+	int val = 0;
+	size_t len;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
+	len = min(count, sizeof(buf) - 1);
+	if (copy_from_user(buf, ubuf, len))
+		return -EFAULT;
+	buf[len] = '\0';
+
+	while (len > 0 && (buf[len - 1] == '\n' || buf[len - 1] == '\r' || isspace(buf[len - 1])))
+		buf[--len] = '\0';
+
+	if (kstrtoint(buf, 10, &val) < 0)
+		return -EINVAL;
+
+	pox_true_tone_set(val ? 1 : 0);
+	return count;
+}
+
+static int true_tone_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, true_tone_proc_show, NULL);
+}
+
+static const struct file_operations true_tone_proc_fops = {
+	.owner   = THIS_MODULE,
+	.open    = true_tone_proc_open,
+	.read    = seq_read,
+	.write   = true_tone_proc_write,
 	.llseek  = seq_lseek,
 	.release = single_release,
 };
@@ -900,6 +952,31 @@ static struct kobj_attribute color_mode_kobj_attr =
 
 static struct kobj_attribute camera_profile_kobj_attr =
 	__ATTR(camera_profile, 0644, color_mode_sysfs_show, color_mode_sysfs_store);
+
+static ssize_t true_tone_sysfs_show(struct kobject *kobj,
+				    struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", pox_true_tone_get());
+}
+
+static ssize_t true_tone_sysfs_store(struct kobject *kobj,
+				     struct kobj_attribute *attr,
+				     const char *buf, size_t count)
+{
+	int val = 0;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
+	if (kstrtoint(buf, 10, &val) != 0)
+		return -EINVAL;
+
+	pox_true_tone_set(val ? 1 : 0);
+	return count;
+}
+
+static struct kobj_attribute true_tone_kobj_attr =
+	__ATTR(true_tone, 0644, true_tone_sysfs_show, true_tone_sysfs_store);
 
 static ssize_t hbm_mode_sysfs_show(struct kobject *kobj,
 				   struct kobj_attribute *attr, char *buf)
@@ -1543,8 +1620,10 @@ static int profile_proc_show(struct seq_file *m, void *v)
 	seq_printf(m, "=== POX KERNEL HARDWARE PROFILE ===\n");
 	seq_printf(m, "gaming_mode: %d (%s)\n", g_mode,
 		   g_mode == 2 ? "EXTREME" : (g_mode == 1 ? "GAMING" : (g_mode == -1 ? "POWERSAVE" : "BALANCED")));
+	seq_printf(m, "true_tone: %d (%s)\n", pox_true_tone_get(),
+		   pox_true_tone_get() ? "ENABLED [DEFAULT]" : "DISABLED");
 	seq_printf(m, "color_mode: %d (%s)\n", c_mode,
-		   c_mode == 3 ? "SLOG3" : (c_mode == 2 ? "VIVID" : (c_mode == 1 ? "REFERENCE" : "STANDARD")));
+		   c_mode == 3 ? "SLOG3" : (c_mode == 2 ? "VIVID" : (c_mode == 1 ? "REFERENCE_D65" : "STANDARD")));
 	seq_printf(m, "hbm_mode: %d (%s)\n", h_mode,
 		   h_mode == 3 ? "L3_PEAK" : (h_mode == 2 ? "L2_HIGH" : (h_mode == 1 ? "L1_BOOST" : "OFF")));
 	seq_printf(m, "touch_game_mode: %d\n", t_game);
@@ -1598,6 +1677,10 @@ int init_gaming_mode(struct proc_dir_entry *parent)
 	entry = proc_create("color_mode", 0644, parent, &color_mode_proc_fops);
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/color_mode\n");
+
+	entry = proc_create("true_tone", 0644, parent, &true_tone_proc_fops);
+	if (!entry)
+		pr_warn("Failed to create /proc/perfmgr/true_tone\n");
 
 	entry = proc_create("camera_profile", 0644, parent, &camera_profile_proc_fops);
 	if (!entry)
@@ -1691,6 +1774,12 @@ int init_gaming_mode(struct proc_dir_entry *parent)
 	else
 		pr_info("/sys/kernel/color_mode created successfully\n");
 
+	ret = sysfs_create_file(kernel_kobj, &true_tone_kobj_attr.attr);
+	if (ret)
+		pr_warn("Failed to create /sys/kernel/true_tone (ret=%d)\n", ret);
+	else
+		pr_info("/sys/kernel/true_tone created successfully\n");
+
 	ret = sysfs_create_file(kernel_kobj, &hbm_mode_kobj_attr.attr);
 	if (ret)
 		pr_warn("Failed to create /sys/kernel/hbm_mode (ret=%d)\n", ret);
@@ -1727,12 +1816,12 @@ int init_gaming_mode(struct proc_dir_entry *parent)
 	else
 		pr_info("/sys/kernel/slog3 created successfully\n");
 
-	/* Initialize to iOS TrueColor Reference (Calibrated D65) */
+	/* Initialize to True Tone Reference (Calibrated D65) as system default */
 	set_ios_color_mode(COLOR_MODE_REFERENCE);
 
 	/* Onyx Gaming Edition: Engage Zero Frame-Drop gaming profile by default */
 	gaming_mode_set(GAMING_MODE_ENABLED);
 
-	pr_info("Gaming Mode & iOS Display Subsystem initialized successfully (Onyx Active).\n");
+	pr_info("Gaming Mode & True Tone Display Subsystem initialized successfully (Onyx Active, True Tone D65 Default).\n");
 	return 0;
 }

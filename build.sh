@@ -429,6 +429,8 @@ RC_EOF
 on boot
     chmod 0644 /proc/perfmgr/gaming_mode
     chmod 0644 /sys/kernel/gaming_mode
+    chmod 0644 /proc/perfmgr/true_tone
+    chmod 0644 /sys/kernel/true_tone
     chmod 0644 /proc/perfmgr/color_mode
     chmod 0644 /sys/kernel/color_mode
     chmod 0644 /proc/perfmgr/hbm_mode
@@ -473,6 +475,7 @@ on boot
     chmod 0644 /sys/module/ged/parameters/boost_gpu_enable
     chmod 0644 /sys/module/ged/parameters/gx_force_cpu_boost
     write /sys/module/ged/parameters/boost_gpu_enable 1
+    write /proc/perfmgr/true_tone 1
     write /proc/perfmgr/color_mode 1
     write /proc/perfmgr/wakelock_blocker 1
     write /proc/perfmgr/fast_charge 1
@@ -508,7 +511,6 @@ on boot
 # ROM Performance Mode / Game Space Active
 on property:persist.sys.power_mode_perf=1
     write /proc/perfmgr/gaming_mode 1
-    write /proc/perfmgr/color_mode 2
     write /proc/net/wlan/setCAM "CAM 1"
     write /sys/block/sda/queue/read_ahead_kb 512
     write /sys/block/sdb/queue/read_ahead_kb 512
@@ -517,7 +519,6 @@ on property:persist.sys.power_mode_perf=1
 
 on property:persist.sys.power_mode_perf=0
     write /proc/perfmgr/gaming_mode 0
-    write /proc/perfmgr/color_mode 1
     write /proc/net/wlan/setCAM "CAM 0"
     write /sys/block/sda/queue/read_ahead_kb 128
     write /sys/block/sdb/queue/read_ahead_kb 128
@@ -527,7 +528,6 @@ on property:persist.sys.power_mode_perf=0
 # Ultra Power Saver Mode (AOSP / LineageOS Battery Saver)
 on property:persist.sys.power_mode_perf=-1
     write /proc/perfmgr/gaming_mode -1
-    write /proc/perfmgr/color_mode 1
     write /proc/net/wlan/setCAM "CAM 0"
     write /sys/block/sda/queue/read_ahead_kb 128
     write /sys/block/sdb/queue/read_ahead_kb 128
@@ -634,7 +634,7 @@ ui_print "     - Storage I/O: BFQ hierarchical scheduler & 512KB readahead activ
 ui_print "     - Cinema Camera Engine: 4K 60FPS unlocked & Sony S-Log3 active";
 ui_print "     - APatch / KernelPatch KALLSYMS: enabled";
 ui_print "     - iOS-Style Compressed Memory: ZSTD ZRAM, 24MB cushion, vfs=50";
-ui_print "     - iOS TrueColor Display Engine: D65 Liquid Retina reference active";
+ui_print "     - True Tone Display Engine: Calibrated D65 Liquid Retina reference active";
 ui_print "     - Video Anti-Lag Engine: VDEC/VENC clock floor & LP4-2100 DDR active";
 ui_print "     - Zero Frame-Drop Gaming Mode: active on ROM Performance toggle";
 ui_print "     - FPSGO Ultra-Rescue + Mali-G76 MC4 Touch Boost: enabled";

@@ -123,7 +123,7 @@ u4ColorLUT:0
 #endif
 };
 
-static int current_ios_color_mode = 1; /* Default: 1 = iOS TrueColor Reference */
+static int current_ios_color_mode = 1; /* Default: 1 = True Tone / iOS Calibrated D65 Reference */
 
 int set_ios_color_mode(int mode)
 {
@@ -143,7 +143,7 @@ int set_ios_color_mode(int mode)
 		g_Color_Param[0].u4SatAdj[2] = 0;
 		g_Color_Param[0].u4SatAdj[3] = 0;
 	} else if (mode == 1) {
-		/* Mode 1: iOS TrueColor Reference (Calibrated D65 Liquid Retina) */
+		/* Mode 1: True Tone / iOS Calibrated D65 Reference (Liquid Retina Default) */
 		g_Color_Param[0].u4SHPGain = 3;
 		g_Color_Param[0].u4SatGain = 5;
 		g_Color_Param[0].u4Contrast = 5;

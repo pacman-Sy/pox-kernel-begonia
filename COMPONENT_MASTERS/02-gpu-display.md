@@ -9,9 +9,12 @@ Panel: 60Hz LCD (DTS fps 6000, PLL540 VDO, no dynamic_fps table on active LCM).
   events, `ged_dvfs_set_gaming_boost()` (margin 520). KPI `ged_kpi.c`:
   gx_dfps/gx_game_mode/gx_boost_on/cpu_boost_policy tables; HAL `ged_hal.c`
   custom_boost/upbound sysfs; 3D-fence smart boost; SKI clamps.
-- gaming_mode drives `ged_kpi/dvfs_set_gaming_boost(1)` + VIVID on enter.
-- Color: 4 modes only (STANDARD/REFERENCE/VIVID/SLOG3, `ddp_color.c:126-192`,
-  default REFERENCE). No warm-shift / per-app LUT.
+- gaming_mode focuses strictly on compute/touch performance (GED DVFS, PPM COBRA,
+  FPSGO, touch boost) and does NOT hijack display calibration.
+- Color / True Tone: True Tone (Calibrated D65 Liquid Retina Reference, Mode 1) is the
+  global system default display profile, exposed via `/proc/perfmgr/true_tone` and
+  `/sys/kernel/true_tone`. Decoupled from gaming mode. Switchable to 4 modes via `color_mode`
+  (0=STANDARD, 1=TRUE_TONE, 2=VIVID, 3=SLOG3).
 - HBM: L1 22mA / L2 25.3mA / L3 27.5mA (`leds-lm36273.h:22-27`),
   `pox_lm36273_hbm_set(0-3)`, manual only, no ALS/timeout/thermal.
 - Refresh: ARR infra exists (`primary_display.c`) but active `nt36672a_auo`
