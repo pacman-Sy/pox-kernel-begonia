@@ -33,6 +33,10 @@ COMMIT_SUBJECT="$(git log -1 --format=%s 2>/dev/null || echo "Release build")"
 # Version Name / Codename (Rocks theme: Granite, Obsidian, Onyx)
 if [[ -z "${VERSION_NAME:-}" ]]; then
     case "$GIT_BRANCH" in
+        onyx-ksu-next*|*ksu-next*)
+            VERSION_NAME="Onyx-KSU-Next"
+            BRANCH_DESC="Zero Frame-Drop Gaming & KernelSU-Next Edition"
+            ;;
         main|granite)
             VERSION_NAME="Granite"
             BRANCH_DESC="Rock-Solid Stability Edition"
