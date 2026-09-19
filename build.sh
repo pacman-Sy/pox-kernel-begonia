@@ -379,12 +379,21 @@ on boot
     write /proc/sys/vm/swappiness 100
     write /proc/sys/vm/dirty_ratio 10
     write /proc/sys/vm/dirty_background_ratio 5
+    write /proc/sys/vm/dirty_expire_centisecs 1500
+    write /proc/sys/vm/dirty_writeback_centisecs 300
+    write /proc/sys/vm/stat_interval 10
     write /proc/sys/vm/extra_free_kbytes 24300
 
-    # Low-latency high-throughput networking
+    # Low-latency high-throughput networking & Fair Queueing for BBR
+    write /proc/sys/net/core/default_qdisc fq
+    write /proc/sys/net/ipv4/tcp_congestion_control bbr
     write /proc/sys/net/ipv4/tcp_fastopen 3
     write /proc/sys/net/ipv4/tcp_slow_start_after_idle 0
     write /proc/sys/net/ipv4/tcp_tw_reuse 1
+    write /proc/sys/net/ipv4/tcp_autocorking 0
+    write /proc/sys/net/ipv4/tcp_notsent_lowat 16384
+    write /proc/sys/net/ipv4/tcp_ecn 1
+    write /proc/sys/net/ipv4/tcp_syncookies 1
     write /proc/sys/net/core/netdev_max_backlog 5000
 
 on property:sys.boot_completed=1
@@ -395,7 +404,14 @@ on property:sys.boot_completed=1
     write /proc/sys/vm/swappiness 100
     write /proc/sys/vm/dirty_ratio 10
     write /proc/sys/vm/dirty_background_ratio 5
+    write /proc/sys/vm/dirty_expire_centisecs 1500
+    write /proc/sys/vm/dirty_writeback_centisecs 300
+    write /proc/sys/vm/stat_interval 10
     write /proc/sys/vm/extra_free_kbytes 24300
+    write /proc/sys/net/core/default_qdisc fq
+    write /proc/sys/net/ipv4/tcp_congestion_control bbr
+    write /proc/sys/net/ipv4/tcp_autocorking 0
+    write /proc/sys/net/ipv4/tcp_notsent_lowat 16384
 RC_EOF
     chmod 644 \$RAMDISK/init.memory_enhanced.rc
 
@@ -453,15 +469,23 @@ on boot
     write /sys/block/sda/queue/rq_affinity 2
     write /sys/block/sda/queue/iostats 0
     write /sys/block/sda/queue/add_random 0
+    write /sys/block/sda/queue/nomerges 1
+    write /sys/block/sda/queue/nr_requests 256
     write /sys/block/sdb/queue/rq_affinity 2
     write /sys/block/sdb/queue/iostats 0
     write /sys/block/sdb/queue/add_random 0
+    write /sys/block/sdb/queue/nomerges 1
+    write /sys/block/sdb/queue/nr_requests 256
     write /sys/block/sdc/queue/rq_affinity 2
     write /sys/block/sdc/queue/iostats 0
     write /sys/block/sdc/queue/add_random 0
+    write /sys/block/sdc/queue/nomerges 1
+    write /sys/block/sdc/queue/nr_requests 256
     write /sys/block/mmcblk0/queue/rq_affinity 2
     write /sys/block/mmcblk0/queue/iostats 0
     write /sys/block/mmcblk0/queue/add_random 0
+    write /sys/block/mmcblk0/queue/nomerges 1
+    write /sys/block/mmcblk0/queue/nr_requests 256
 
 # ROM Performance Mode / Game Space Active
 on property:persist.sys.power_mode_perf=1
