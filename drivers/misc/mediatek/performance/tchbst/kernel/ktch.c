@@ -28,6 +28,8 @@
 #include "boost_ctrl.h"
 #include "mtk_perfmgr_internal.h"
 
+extern int gaming_mode_get(void);
+
 
 
 #define MAX_CORE (8)
@@ -123,8 +125,8 @@ static int ktchboost_thread(void *ptr)
 			/* Immediate dual-cluster frequency & uclamp boost on finger down / drag */
 			set_freq(1, core, freq);
 		} else {
-			/* Finger lifted: hold boost for 80ms to smooth out tap animations and keyboard response */
-			schedule_timeout_interruptible(msecs_to_jiffies(80));
+			/* Finger lifted: hold boost for 80ms (120ms in gaming mode) to smooth out tap animations and keyboard response */
+			schedule_timeout_interruptible(msecs_to_jiffies(gaming_mode_get() > 0 ? 120 : 80));
 			/* Only drop if no new touch event has queued */
 			if (!atomic_read(&ktchboost.event) && !ktchboost.touch_event)
 				set_freq(0, core, freq);

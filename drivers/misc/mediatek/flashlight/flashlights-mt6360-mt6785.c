@@ -826,6 +826,15 @@ int pox_torch_brightness_get(void)
 }
 EXPORT_SYMBOL(pox_torch_brightness_get);
 
+int pox_torch_brightness_set(int value);
+
+static void pox_torch_timeout_work_func(struct work_struct *work)
+{
+	pr_info("[POX_TORCH] Auto-timeout triggered (5 min continuous cap), turning off torch\n");
+	pox_torch_brightness_set(0);
+}
+static DECLARE_DELAYED_WORK(pox_torch_timeout_work, pox_torch_timeout_work_func);
+
 int pox_torch_brightness_set(int value)
 {
 	int sel;
@@ -838,6 +847,7 @@ int pox_torch_brightness_set(int value)
 	mutex_lock(&pox_torch_lock);
 
 	if (value <= 0) {
+		cancel_delayed_work(&pox_torch_timeout_work);
 		/* Turn torch OFF */
 		if (pox_torch_active || flash_is_use) {
 			mt6360_disable(MT6360_CHANNEL_CH1);
@@ -875,6 +885,10 @@ int pox_torch_brightness_set(int value)
 	flash_is_use = 1;
 	pox_torch_current_val = value;
 	mt6360_torch_level_sysfs = value;
+
+	/* Reset 5-minute safety timeout */
+	cancel_delayed_work(&pox_torch_timeout_work);
+	schedule_delayed_work(&pox_torch_timeout_work, round_jiffies_relative(300 * HZ));
 
 	mutex_unlock(&pox_torch_lock);
 	return 0;

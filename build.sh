@@ -436,6 +436,7 @@ on boot
     chmod 0644 /proc/perfmgr/torch_brightness
     chmod 0644 /proc/perfmgr/flashlight_brightness
     chmod 0444 /proc/perfmgr/torch_info
+    chmod 0444 /proc/perfmgr/profile
     chmod 0644 /sys/kernel/torch_brightness
     chmod 0644 /sys/kernel/flashlight_brightness
     chmod 0644 /sys/class/leds/torch-light0/brightness
