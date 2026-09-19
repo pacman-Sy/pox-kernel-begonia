@@ -98,7 +98,10 @@ static int ktchboost_thread(void *ptr)
 	int event, core, freq;
 	unsigned long flags;
 
-	set_user_nice(current, -10);
+	struct sched_param param = { .sched_priority = 90 };
+
+	sched_setscheduler_nocheck(current, SCHED_FIFO, &param);
+	set_user_nice(current, -20);
 
 	while (!kthread_should_stop()) {
 
@@ -309,6 +312,12 @@ static void dbs_input_event(struct input_handle *handle, unsigned int type,
 
 		atomic_inc(&ktchboost.event);
 		wake_up(&ktchboost.wq);
+	} else if (type == EV_ABS && (code == ABS_MT_POSITION_X || code == ABS_MT_POSITION_Y)) {
+		/* Continuous finger motion/aiming: maintain active boost */
+		if (ktchboost.touch_event) {
+			atomic_inc(&ktchboost.event);
+			wake_up(&ktchboost.wq);
+		}
 	}
 }
 

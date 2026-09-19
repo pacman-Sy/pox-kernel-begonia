@@ -1803,9 +1803,9 @@ static void mtk_chg_get_tchg(struct charger_manager *info)
  * Smart Battery Guard & Direct Power Bypass Charging Engine
  * ========================================================================= */
 static int g_battery_bypass_mode = 0;      /* 0 = normal charging, 1 = direct bypass power */
-static int g_battery_charge_limit = 80;    /* default 80% charge ceiling (50-100, 100=disabled) */
-static int g_battery_thermal_guard = 1;   /* 1 = auto bypass when hot */
-static int g_battery_temp_limit = 390;     /* 39.0°C thermal guard threshold */
+static int g_battery_charge_limit = 100;   /* default 100% (limit disabled, charges to 100) */
+static int g_battery_thermal_guard = 0;    /* 0 = disabled by default (JEITA handles thermal regulation) */
+static int g_battery_temp_limit = 460;     /* 46.0°C thermal ceiling if thermal guard manually enabled */
 static int g_battery_bypass_reason = 0;   /* 0=none, 1=manual, 2=cap_limit, 3=thermal */
 
 static void charger_check_status(struct charger_manager *info)

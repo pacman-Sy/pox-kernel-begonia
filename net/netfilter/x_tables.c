@@ -639,6 +639,7 @@ void xt_compat_match_from_user(struct xt_entry_match *m, void **dstptr,
 	int pad, off = xt_compat_match_offset(match);
 	u_int16_t msize = cm->u.user.match_size;
 	char name[sizeof(m->u.user.name)];
+	int pad;
 
 	m = *dstptr;
 	memcpy(m, cm, sizeof(*cm));
@@ -646,6 +647,10 @@ void xt_compat_match_from_user(struct xt_entry_match *m, void **dstptr,
 		match->compat_from_user(m->data, cm->data);
 	else
 		memcpy(m->data, cm->data, msize - sizeof(*cm));
+	pad = XT_ALIGN(match->matchsize) - match->matchsize;
+	if (pad > 0)
+		memset(m->data + match->matchsize, 0, pad);
+
 	pad = XT_ALIGN(match->matchsize) - match->matchsize;
 	if (pad > 0)
 		memset(m->data + match->matchsize, 0, pad);
@@ -994,6 +999,7 @@ void xt_compat_target_from_user(struct xt_entry_target *t, void **dstptr,
 	int pad, off = xt_compat_target_offset(target);
 	u_int16_t tsize = ct->u.user.target_size;
 	char name[sizeof(t->u.user.name)];
+	int pad;
 
 	t = *dstptr;
 	memcpy(t, ct, sizeof(*ct));
@@ -1001,6 +1007,10 @@ void xt_compat_target_from_user(struct xt_entry_target *t, void **dstptr,
 		target->compat_from_user(t->data, ct->data);
 	else
 		memcpy(t->data, ct->data, tsize - sizeof(*ct));
+	pad = XT_ALIGN(target->targetsize) - target->targetsize;
+	if (pad > 0)
+		memset(t->data + target->targetsize, 0, pad);
+
 	pad = XT_ALIGN(target->targetsize) - target->targetsize;
 	if (pad > 0)
 		memset(t->data + target->targetsize, 0, pad);
