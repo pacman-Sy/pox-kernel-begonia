@@ -69,6 +69,10 @@ jobs:
 
           BRANCH_NAME="${{ github.ref_name }}"
           case "$BRANCH_NAME" in
+            onyx-ksu-next*|*ksu-next*)
+              EDITION="Onyx-KSU-Next"
+              EDITION_DESC="Zero Frame-Drop Gaming & KernelSU-Next Edition"
+              ;;
             main|granite)
               EDITION="Granite"
               EDITION_DESC="Rock-Solid Stability Edition"
