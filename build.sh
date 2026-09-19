@@ -341,9 +341,11 @@ ui_print "  * Linux Ver    : $kver                     ";
 ui_print "  * Build Date   : $COMMIT_DATE              ";
 ui_print "  * Toolchain    : $toolchain_ver            ";
 ui_print "  * Features     : APatch / KernelPatch ready";
+ui_print "  * Crypto Engine: ARMv8 CE & NEON Accelerated";
 ui_print "  * Mem Engine   : iOS-Style On-Demand ZRAM  ";
 ui_print "  * Game Engine  : Zero Frame-Drop Gaming Mode";
-ui_print "  * Perf Mode    : ROM Performance Auto-Trigger";
+ui_print "  * Display Mode : iOS D65 & Sunlight HBM Overdrive";
+ui_print "  * Perf Mode    : Tri-State Auto-Trigger Engine";
 ui_print " --------------------------------------------";
 ui_print "  LATEST COMMIT:";
 ui_print "  $COMMIT_SUBJECT";
@@ -392,6 +394,8 @@ on boot
     write /proc/sys/net/ipv4/tcp_tw_reuse 1
     write /proc/sys/net/ipv4/tcp_autocorking 0
     write /proc/sys/net/ipv4/tcp_notsent_lowat 16384
+    write /proc/sys/net/ipv4/tcp_rmem "4096 87380 6291456"
+    write /proc/sys/net/ipv4/tcp_wmem "4096 65536 6291456"
     write /proc/sys/net/ipv4/tcp_ecn 1
     write /proc/sys/net/ipv4/tcp_syncookies 1
     write /proc/sys/net/core/netdev_max_backlog 5000
@@ -412,6 +416,8 @@ on property:sys.boot_completed=1
     write /proc/sys/net/ipv4/tcp_congestion_control bbr
     write /proc/sys/net/ipv4/tcp_autocorking 0
     write /proc/sys/net/ipv4/tcp_notsent_lowat 16384
+    write /proc/sys/net/ipv4/tcp_rmem "4096 87380 6291456"
+    write /proc/sys/net/ipv4/tcp_wmem "4096 65536 6291456"
 RC_EOF
     chmod 644 \$RAMDISK/init.memory_enhanced.rc
 
@@ -425,6 +431,8 @@ on boot
     chmod 0664 /sys/kernel/gaming_mode
     chmod 0666 /proc/perfmgr/color_mode
     chmod 0664 /sys/kernel/color_mode
+    chmod 0666 /proc/perfmgr/hbm_mode
+    chmod 0664 /sys/kernel/hbm_mode
     chmod 0666 /proc/perfmgr/camera_profile
     chmod 0664 /sys/kernel/camera_profile
     chmod 0666 /proc/perfmgr/camera_4k60
@@ -506,6 +514,16 @@ on property:persist.sys.power_mode_perf=0
     write /sys/block/sdc/queue/read_ahead_kb 128
     write /sys/block/mmcblk0/queue/read_ahead_kb 128
 
+# Ultra Power Saver Mode (AOSP / LineageOS Battery Saver)
+on property:persist.sys.power_mode_perf=-1
+    write /proc/perfmgr/gaming_mode -1
+    write /proc/perfmgr/color_mode 1
+    write /proc/net/wlan/setCAM "CAM 0"
+    write /sys/block/sda/queue/read_ahead_kb 128
+    write /sys/block/sdb/queue/read_ahead_kb 128
+    write /sys/block/sdc/queue/read_ahead_kb 128
+    write /sys/block/mmcblk0/queue/read_ahead_kb 128
+
 # LineageOS Performance Profile (0=power_save, 1=balanced, 2=performance)
 on property:sys.perf.profile=2
     setprop persist.sys.power_mode_perf 1
@@ -514,6 +532,13 @@ on property:sys.perf.profile=1
     setprop persist.sys.power_mode_perf 0
 
 on property:sys.perf.profile=0
+    setprop persist.sys.power_mode_perf -1
+
+# Android Battery Saver Global Low Power mode
+on property:settings.global.low_power=1
+    setprop persist.sys.power_mode_perf -1
+
+on property:settings.global.low_power=0
     setprop persist.sys.power_mode_perf 0
 
 # GameSpace Mode (AOSP / Chaldea GameSpace)
