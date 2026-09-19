@@ -433,6 +433,15 @@ on boot
     chmod 0664 /sys/kernel/color_mode
     chmod 0666 /proc/perfmgr/hbm_mode
     chmod 0664 /sys/kernel/hbm_mode
+    chmod 0666 /proc/perfmgr/torch_brightness
+    chmod 0666 /proc/perfmgr/flashlight_brightness
+    chmod 0444 /proc/perfmgr/torch_info
+    chmod 0664 /sys/kernel/torch_brightness
+    chmod 0664 /sys/kernel/flashlight_brightness
+    chmod 0666 /sys/class/leds/torch-light0/brightness
+    chmod 0666 /sys/class/leds/torch-light1/brightness
+    chmod 0666 /sys/class/leds/torch-light2/brightness
+    chmod 0666 /sys/class/leds/flashlight/brightness
     chmod 0666 /proc/perfmgr/camera_profile
     chmod 0664 /sys/kernel/camera_profile
     chmod 0666 /proc/perfmgr/camera_4k60
