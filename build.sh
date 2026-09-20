@@ -470,13 +470,6 @@ on boot
     chmod 0666 /sys/kernel/torch_brightness
     chmod 0666 /sys/kernel/flashlight_brightness
     chmod 0666 /sys/devices/platform/flashlights_mt6360/torchbrightness
-    chmod 0666 /sys/devices/platform/flashlights_mt6360/leds/torch-light0/brightness
-    chmod 0666 /sys/devices/platform/flashlights_mt6360/leds/torch-light1/brightness
-    chmod 0666 /sys/devices/platform/flashlights_mt6360/leds/torch-light2/brightness
-    chmod 0666 /sys/class/leds/torch-light0/brightness
-    chmod 0666 /sys/class/leds/torch-light1/brightness
-    chmod 0666 /sys/class/leds/torch-light2/brightness
-    chmod 0666 /sys/class/leds/flashlight/brightness
     chmod 0644 /proc/perfmgr/camera_profile
     chmod 0644 /sys/kernel/camera_profile
     chmod 0644 /proc/perfmgr/camera_4k60
