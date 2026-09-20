@@ -3418,9 +3418,14 @@ static ssize_t charge_limit_store(struct kobject *kobj, struct kobj_attribute *a
 {
 	int val = 0;
 	if (kstrtoint(buf, 10, &val) == 0) {
-		if (val < 50) val = 50;
-		if (val > 100) val = 100;
+		if (val <= 0 || val >= 100)
+			val = 100;
+		else if (val < 50)
+			val = 100; /* Any value < 50 is not an SoC cap (e.g. 0/disabled from HAL), treat as unlimited */
+
 		g_battery_charge_limit = val;
+		if (g_battery_bypass_reason == 2 && (val >= 100 || battery_get_uisoc() < val))
+			g_battery_bypass_reason = 0;
 		if (pinfo)
 			_wake_up_charger(pinfo);
 	}
@@ -3498,9 +3503,14 @@ EXPORT_SYMBOL(pox_battery_limit_get);
 
 void pox_battery_limit_set(int limit)
 {
-	if (limit < 50) limit = 50;
-	if (limit > 100) limit = 100;
+	if (limit <= 0 || limit >= 100)
+		limit = 100;
+	else if (limit < 50)
+		limit = 100; /* Any value < 50 (like 0 from LineageHealth when no limit is active) means 100% full charge */
+
 	g_battery_charge_limit = limit;
+	if (g_battery_bypass_reason == 2 && (limit >= 100 || battery_get_uisoc() < limit))
+		g_battery_bypass_reason = 0;
 	if (pinfo)
 		_wake_up_charger(pinfo);
 }
