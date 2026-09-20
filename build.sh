@@ -20,7 +20,21 @@ DEVICE_NAME="${DEVICE_NAME:-Redmi Note 8 Pro}"
 DEVICE_CODENAME="${DEVICE_CODENAME:-begonia}"
 MAINTAINER="${MAINTAINER:-TXO R (Pox Project)}"
 DEFCONFIG="${DEFCONFIG:-begonia_apatch_defconfig}"
-JOBS="${JOBS:-$(nproc)}"
+
+# Determine safe parallel jobs based on available RAM and load to protect host PC from freezing
+auto_jobs() {
+    local mem_avail_kb
+    mem_avail_kb=$(awk '/MemAvailable/ {print $2}' /proc/meminfo 2>/dev/null || echo 3000000)
+    # Estimate ~1.2GB per clang worker; clamp jobs between 2 and 4 to prevent freezing host
+    local safe_jobs=$(( mem_avail_kb / 1200000 ))
+    if (( safe_jobs < 2 )); then
+        safe_jobs=2
+    elif (( safe_jobs > 4 )); then
+        safe_jobs=4
+    fi
+    echo "$safe_jobs"
+}
+JOBS="${JOBS:-$(auto_jobs)}"
 EXTRA_FLAGS="${EXTRA_FLAGS:-}"
 DATE="$(date +%Y%m%d-%H%M)"
 
@@ -207,9 +221,23 @@ build_kernel() {
         log "CONFIG_KALLSYMS_ALL=y verified (APatch supported)."
     fi
 
-    log "Starting kernel compilation..."
+    # Host PC safety: ensure load average and memory are suitable before launching build
+    local load
+    while true; do
+        load=$(awk '{print int($1)}' /proc/loadavg 2>/dev/null || echo 0)
+        local mem_avail_mb
+        mem_avail_mb=$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 2000)
+        if (( load > 6 || mem_avail_mb < 700 )); then
+            warn "PC load is high (${load}) or available RAM low (${mem_avail_mb}MB). Waiting 5s for host to settle..."
+            sleep 5
+        else
+            break
+        fi
+    done
+
+    log "Starting kernel compilation (nice priority, jobs: $JOBS)..."
     # shellcheck disable=SC2086
-    make O="$OUT_DIR" ARCH="$ARCH" CC="$bcc" \
+    nice -n 10 make O="$OUT_DIR" ARCH="$ARCH" CC="$bcc" \
         CLANG_TRIPLE="$CLANG_TRIPLE" CROSS_COMPILE="$CROSS_COMPILE" \
         $EXTRA_FLAGS -j"$JOBS"
 
@@ -599,10 +627,15 @@ on boot
     chmod 0444 /sys/kernel/battery_protection/battery_soc
     chmod 0444 /sys/kernel/battery_protection/battery_temp
 
-    # Default to 80% Smart Charge Limit and 39C Thermal Protection
-    write /sys/kernel/battery_protection/charge_limit 80
-    write /sys/kernel/battery_protection/thermal_guard 1
-    write /sys/kernel/battery_protection/temp_limit 39
+    # Default: Full charge (100%), thermal guard disabled (0) so JEITA handles protection without artificial stopping
+    write /sys/kernel/battery_protection/charge_limit 100
+    write /sys/kernel/battery_protection/thermal_guard 0
+    write /sys/kernel/battery_protection/temp_limit 48
+
+    # True Tone System Default (Calibrated Liquid Retina D65)
+    chmod 0644 /proc/perfmgr/true_tone
+    chmod 0644 /sys/kernel/true_tone
+    write /proc/perfmgr/true_tone 1
 RC_EOF
     chmod 644 \$RAMDISK/init.battery_guard.rc
 
@@ -673,6 +706,42 @@ AK_EOF
     log "================================================="
 }
 
+install_device() {
+    local zip_file
+    zip_file=$(ls -t "$BUILD_DIR"/${ZIP_BASE}*.zip 2>/dev/null | head -n 1 || true)
+    if [[ -z "$zip_file" || ! -f "$zip_file" ]]; then
+        if [[ -f "$BUILD_DIR/latest.zip" ]]; then
+            zip_file="$BUILD_DIR/latest.zip"
+        else
+            err "No AnyKernel3 zip found in $BUILD_DIR. Please run ./build.sh all first."
+            exit 1
+        fi
+    fi
+
+    log "Checking ADB connection to device..."
+    if ! command -v adb >/dev/null 2>&1; then
+        err "adb tool not found in PATH."
+        exit 1
+    fi
+
+    local dev_state
+    dev_state=$(adb get-state 2>/dev/null || echo "offline")
+    if [[ "$dev_state" != "device" && "$dev_state" != "recovery" ]]; then
+        err "Device not detected in 'device' or 'recovery' mode (current state: $dev_state)."
+        exit 1
+    fi
+
+    log "Pushing $(basename "$zip_file") to device (/sdcard/)..."
+    adb push "$zip_file" "/sdcard/$(basename "$zip_file")"
+    adb push "$zip_file" "/sdcard/latest.zip"
+    adb push "$zip_file" "/sdcard/Pox-Kernel-latest.zip"
+
+    log "Kernel zip installed to /sdcard/ on device!"
+    log "  - /sdcard/$(basename "$zip_file")"
+    log "  - /sdcard/latest.zip"
+    log "  - /sdcard/Pox-Kernel-latest.zip"
+}
+
 case "$ACTION" in
     clean)
         clean_build
@@ -689,13 +758,21 @@ case "$ACTION" in
     zip|package)
         package_zip
         ;;
+    install)
+        install_device
+        ;;
+    build-install|"build and install")
+        build_kernel
+        package_zip
+        install_device
+        ;;
     all|"")
         build_kernel
         package_zip
         ;;
     *)
         err "Unknown action: $ACTION"
-        echo "Usage: $0 [all|kernel|zip|menuconfig|clean|distclean]"
+        echo "Usage: $0 [all|kernel|zip|install|build-install|menuconfig|clean|distclean]"
         exit 1
         ;;
 esac
