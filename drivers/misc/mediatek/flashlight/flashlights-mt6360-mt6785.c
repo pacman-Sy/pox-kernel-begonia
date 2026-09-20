@@ -902,9 +902,6 @@ static ssize_t torchbrightness_store(struct device *dev,
 {
 	int value;
 
-	if (!capable(CAP_SYS_ADMIN))
-		return -EPERM;
-
 	if (kstrtoint(buf, 0, &value))
 		return -EINVAL;
 
@@ -924,7 +921,7 @@ static ssize_t torchbrightness_show(struct device *dev,
  * and clamped safely in pox_torch_brightness_set().
  */
 static struct device_attribute dev_attr_torchbrightness = {
-	.attr	= { .name = "torchbrightness", .mode = 0644 },
+	.attr	= { .name = "torchbrightness", .mode = 0666 },
 	.show	= torchbrightness_show,
 	.store	= torchbrightness_store,
 };

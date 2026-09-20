@@ -650,9 +650,6 @@ static ssize_t torch_brightness_proc_write(struct file *file, const char __user 
 	int val = 0;
 	size_t len;
 
-	if (!capable(CAP_SYS_ADMIN))
-		return -EPERM;
-
 	if (count == 0)
 		return 0;
 
@@ -1015,9 +1012,6 @@ static ssize_t torch_brightness_sysfs_store(struct kobject *kobj,
 					    const char *buf, size_t count)
 {
 	int val = 0;
-
-	if (!capable(CAP_SYS_ADMIN))
-		return -EPERM;
 
 	if (kstrtoint(buf, 10, &val) < 0)
 		return -EINVAL;
@@ -1746,11 +1740,11 @@ int init_gaming_mode(struct proc_dir_entry *parent)
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/hbm_mode\n");
 
-	entry = proc_create("torch_brightness", 0644, parent, &torch_brightness_proc_fops);
+	entry = proc_create("torch_brightness", 0666, parent, &torch_brightness_proc_fops);
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/torch_brightness\n");
 
-	entry = proc_create("flashlight_brightness", 0644, parent, &torch_brightness_proc_fops);
+	entry = proc_create("flashlight_brightness", 0666, parent, &torch_brightness_proc_fops);
 	if (!entry)
 		pr_warn("Failed to create /proc/perfmgr/flashlight_brightness\n");
 
