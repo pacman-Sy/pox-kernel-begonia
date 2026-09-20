@@ -1020,11 +1020,17 @@ static ssize_t torch_brightness_sysfs_store(struct kobject *kobj,
 	return count;
 }
 
-static struct kobj_attribute torch_brightness_kobj_attr =
-	__ATTR(torch_brightness, 0666, torch_brightness_sysfs_show, torch_brightness_sysfs_store);
+static struct kobj_attribute torch_brightness_kobj_attr = {
+	.attr	= { .name = "torch_brightness", .mode = 0666 },
+	.show	= torch_brightness_sysfs_show,
+	.store	= torch_brightness_sysfs_store,
+};
 
-static struct kobj_attribute flashlight_brightness_kobj_attr =
-	__ATTR(flashlight_brightness, 0666, torch_brightness_sysfs_show, torch_brightness_sysfs_store);
+static struct kobj_attribute flashlight_brightness_kobj_attr = {
+	.attr	= { .name = "flashlight_brightness", .mode = 0666 },
+	.show	= torch_brightness_sysfs_show,
+	.store	= torch_brightness_sysfs_store,
+};
 
 static ssize_t camera_4k60_sysfs_show(struct kobject *kobj,
 				      struct kobj_attribute *attr, char *buf)
