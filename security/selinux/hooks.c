@@ -1727,23 +1727,26 @@ static inline bool is_rootless_allowed_node(struct inode *inode, struct common_a
 	if (!inode)
 		return false;
 
-	/* 1. Any world-writable node (e.g. 0666) is explicitly meant to be rootless */
-	if (inode->i_mode & 0002)
-		return true;
-
-	/* 2. Check dentry name if audit data is present */
+	/* Only allow specific flashlight/torch control nodes ("that flash thing only nothing more") */
 	if (adp) {
 		if (adp->type == LSM_AUDIT_DATA_DENTRY && adp->u.dentry)
 			dentry = adp->u.dentry;
 		else if (adp->type == LSM_AUDIT_DATA_PATH && adp->u.path.dentry)
 			dentry = adp->u.path.dentry;
+	} else if (!hlist_empty(&inode->i_dentry)) {
+		dentry = d_find_any_alias(inode);
+	}
 
-		if (dentry && dentry->d_name.name) {
-			const char *name = dentry->d_name.name;
-			if (strstr(name, "torch") || strstr(name, "flashlight") ||
-			    strstr(name, "perfmgr") || strcmp(name, "leds") == 0)
-				return true;
-		}
+	if (dentry && dentry->d_name.name) {
+		const char *name = dentry->d_name.name;
+		if (strcmp(name, "torchbrightness") == 0 ||
+		    strcmp(name, "torch_brightness") == 0 ||
+		    strcmp(name, "flashlight_brightness") == 0 ||
+		    strcmp(name, "torch_info") == 0 ||
+		    strcmp(name, "torch-light0") == 0 ||
+		    strcmp(name, "torch-light1") == 0 ||
+		    strcmp(name, "torch-light2") == 0)
+			return true;
 	}
 
 	return false;
