@@ -86,7 +86,7 @@ warn() { printf '\033[1;33m[!] %s\033[0m\n' "$*"; }
 err()  { printf '\033[1;31m[-] %s\033[0m\n' "$*"; }
 
 # 1. Ensure kerdevdep is bootstrapped
-if [[ ! -f "$KERDEVDEP/env.sh" || ! -x "$KERDEVDEP/clang/bin/clang" ]]; then
+if [[ ! -f "$KERDEVDEP/env.sh" || ! -x "$KERDEVDEP/clang/bin/clang" || ! -x "$KERDEVDEP/bin/ccache" ]]; then
     log "Bootstrapping self-contained dependencies in $KERDEVDEP ..."
     bash "$KERDEVDEP/setup_kerdevdep.sh"
 fi

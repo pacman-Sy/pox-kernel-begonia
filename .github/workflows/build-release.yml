@@ -47,14 +47,15 @@ jobs:
             kerdevdep/clang
             kerdevdep/gcc
             kerdevdep/anykernel
-            kerdevdep/usr
-            kerdevdep/lib
-            kerdevdep/bin
-          key: kerdevdep-toolchains-v1
+          key: kerdevdep-toolchains-v2
+          restore-keys: |
+            kerdevdep-toolchains-v2
+            kerdevdep-toolchains-
 
       - name: Build Pox Kernel & Flashable Zip
         id: build_kernel
         run: |
+          bash kerdevdep/setup_kerdevdep.sh
           export GITHUB_REF_NAME="${{ github.ref_name }}"
           ./build.sh all
 
