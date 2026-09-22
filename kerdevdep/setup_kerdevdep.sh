@@ -85,8 +85,14 @@ chmod +x bin/yacc
 cat << 'WRAPPERS' > bin/flex
 #!/usr/bin/env bash
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-export LD_LIBRARY_PATH="$SELF_DIR/lib:$SELF_DIR/lib/x86_64-linux-gnu:$SELF_DIR/usr/lib:$SELF_DIR/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"
-exec "$SELF_DIR/usr/bin/flex" "$@"
+if [[ -x "$SELF_DIR/usr/bin/flex" ]]; then
+    export LD_LIBRARY_PATH="$SELF_DIR/lib:$SELF_DIR/lib/x86_64-linux-gnu:$SELF_DIR/usr/lib:$SELF_DIR/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"
+    exec "$SELF_DIR/usr/bin/flex" "$@"
+elif [[ -x "/usr/bin/flex" ]]; then
+    exec /usr/bin/flex "$@"
+else
+    exec flex "$@"
+fi
 WRAPPERS
 chmod +x bin/flex
 ln -sf flex bin/lex
@@ -95,24 +101,42 @@ ln -sf flex bin/flex++
 cat << 'WRAPPERS' > bin/m4
 #!/usr/bin/env bash
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-export LD_LIBRARY_PATH="$SELF_DIR/lib:$SELF_DIR/lib/x86_64-linux-gnu:$SELF_DIR/usr/lib:$SELF_DIR/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"
-exec "$SELF_DIR/usr/bin/m4" "$@"
+if [[ -x "$SELF_DIR/usr/bin/m4" ]]; then
+    export LD_LIBRARY_PATH="$SELF_DIR/lib:$SELF_DIR/lib/x86_64-linux-gnu:$SELF_DIR/usr/lib:$SELF_DIR/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"
+    exec "$SELF_DIR/usr/bin/m4" "$@"
+elif [[ -x "/usr/bin/m4" ]]; then
+    exec /usr/bin/m4 "$@"
+else
+    exec m4 "$@"
+fi
 WRAPPERS
 chmod +x bin/m4
 
 cat << 'WRAPPERS' > bin/pahole
 #!/usr/bin/env bash
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-export LD_LIBRARY_PATH="$SELF_DIR/lib:$SELF_DIR/lib/x86_64-linux-gnu:$SELF_DIR/usr/lib:$SELF_DIR/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"
-exec "$SELF_DIR/usr/bin/pahole" "$@"
+if [[ -x "$SELF_DIR/usr/bin/pahole" ]]; then
+    export LD_LIBRARY_PATH="$SELF_DIR/lib:$SELF_DIR/lib/x86_64-linux-gnu:$SELF_DIR/usr/lib:$SELF_DIR/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"
+    exec "$SELF_DIR/usr/bin/pahole" "$@"
+elif [[ -x "/usr/bin/pahole" ]]; then
+    exec /usr/bin/pahole "$@"
+else
+    exec pahole "$@"
+fi
 WRAPPERS
 chmod +x bin/pahole
 
 cat << 'WRAPPERS' > bin/ccache
 #!/usr/bin/env bash
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-export LD_LIBRARY_PATH="$SELF_DIR/lib:$SELF_DIR/lib/x86_64-linux-gnu:$SELF_DIR/usr/lib:$SELF_DIR/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"
-exec "$SELF_DIR/usr/bin/ccache" "$@"
+if [[ -x "$SELF_DIR/usr/bin/ccache" ]]; then
+    export LD_LIBRARY_PATH="$SELF_DIR/lib:$SELF_DIR/lib/x86_64-linux-gnu:$SELF_DIR/usr/lib:$SELF_DIR/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"
+    exec "$SELF_DIR/usr/bin/ccache" "$@"
+elif [[ -x "/usr/bin/ccache" ]]; then
+    exec /usr/bin/ccache "$@"
+else
+    exec "$@"
+fi
 WRAPPERS
 chmod +x bin/ccache
 
