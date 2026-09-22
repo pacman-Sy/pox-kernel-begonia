@@ -86,6 +86,7 @@ jobs:
               ;;
           esac
 
+          COMMIT_SHORT="$(git rev-parse --short HEAD 2>/dev/null || echo "${{ github.sha }}" | cut -c1-8)"
           TAG_NAME="Pox-0.9-${EDITION}-${BRANCH_NAME}-${COMMIT_SHORT}"
           RELEASE_TITLE="Pox Kernel 0.9 [${EDITION}] - ${BRANCH_NAME} (${COMMIT_SHORT})"
 
