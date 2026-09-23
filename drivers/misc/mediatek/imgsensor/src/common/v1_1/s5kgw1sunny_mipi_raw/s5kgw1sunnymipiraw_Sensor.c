@@ -52,6 +52,7 @@
 #include "s5kgw1sunnymipiraw_Sensor.h"
 
 extern int camera_4k60_get(void);
+static void custom3_setting(void);
 
 #define MULTI_WRITE 1
 
@@ -213,19 +214,19 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.mipi_pixel_rate = 1580000000,
 		.gw1_binning_mode = 0,
 	},
-	.slim_video = {//4M 60fps (4SUMA2A2)
+	.slim_video = {/*16M 60FPS Full Frame (4SUM) - 4K 60FPS & Full Field of View*/
 		.pclk = 1920000000,
-		.linelength = 0x3830,
-		.framelength = 0x08B0,
+		.linelength = 8464, /*//0x2110*/
+		.framelength = 3780, /*//0x0EC4*/
 		.startx = 0,
 		.starty = 0,
-		.grabwindow_width = 2320,
-		.grabwindow_height = 1736,
+		.grabwindow_width = 4640,
+		.grabwindow_height = 3472,
 
 		.mipi_data_lp2hs_settle_dc = 0x22,
 		.max_framerate = 600,
-		.mipi_pixel_rate = 412000000,
-		.gw1_binning_mode = 3,
+		.mipi_pixel_rate = 1580000000,
+		.gw1_binning_mode = 1,
 	},
 	.margin = 8, 	/* sensor framelength & shutter margin */
 	.min_shutter = 4, /* min shutter */
@@ -366,8 +367,8 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[9] = {
 	{9280, 6944, 800, 1312, 7680, 4320, 1920, 1080, 0, 0, 1920, 1080,
 	0, 0, 1920, 1080},/* HS_VID SMVR 240FPS 1080P */
 
-	{9280, 6944, 0, 0, 9280, 6944, 2320, 1736, 0, 0, 2320, 1736,
-	0, 0, 2320, 1736},/* slim_video 4M 60FPS*/
+	{9280, 6944, 0, 0, 9280, 6944, 4640, 3472, 0, 0, 4640, 3472,
+	0, 0, 4640, 3472},/* slim_video 16M 60FPS*/
 
 	{9280, 6944, 0, 0, 9280, 6944, 4640, 3472, 0, 0, 4640, 3472,
 	0, 0, 4640, 3472},/* custom1 stereo as Preview */
@@ -10635,7 +10636,7 @@ static void hs_video_setting(void)
 			sizeof(addr_data_pair_hs_gw1) / sizeof(kal_uint16));
 }
 
-static kal_uint16 addr_data_pair_slim_gw1[] = {
+__maybe_unused static kal_uint16 addr_data_pair_slim_gw1[] = {
 	0x6028, 0x4000,
 	0x6214, 0xF9F0,
 	0x6218, 0xF150,
@@ -11278,12 +11279,8 @@ static kal_uint16 addr_data_pair_slim_gw1[] = {
 static void slim_video_setting(void)
 {
 	printk("%s E\n", __func__);
-	/* 1080p 60fps */
-
-	/* Convert from : "Init.txt"*/
-
-	table_write_cmos_sensor(addr_data_pair_slim_gw1,
-		sizeof(addr_data_pair_slim_gw1) / sizeof(kal_uint16));
+	/* 16M 60fps full frame */
+	custom3_setting();
 }
 
 static kal_uint16 addr_data_pair_custom1_gw1[] = {
@@ -15450,6 +15447,17 @@ enum MSDK_SCENARIO_ID_ENUM scenario_id, MUINT32 framerate)
 		}
 		break;
 	case MSDK_SCENARIO_ID_SLIM_VIDEO:
+		if (imgsensor.line_length != imgsensor_info.slim_video.linelength) {
+			spin_lock(&imgsensor_drv_lock);
+			imgsensor.pclk = imgsensor_info.slim_video.pclk;
+			imgsensor.line_length = imgsensor_info.slim_video.linelength;
+			imgsensor.frame_length = imgsensor_info.slim_video.framelength;
+			imgsensor.gw1_binning_mode = imgsensor_info.slim_video.gw1_binning_mode;
+			imgsensor.min_frame_length = imgsensor_info.slim_video.framelength;
+			spin_unlock(&imgsensor_drv_lock);
+			custom3_setting();
+			set_mirror_flip(imgsensor.mirror);
+		}
 		frame_length = imgsensor_info.slim_video.pclk
 			/ framerate * 10 / imgsensor_info.slim_video.linelength;
 
