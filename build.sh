@@ -475,8 +475,9 @@ on boot
     chmod 0666 /sys/devices/platform/flashlights_mt6360/torchbrightness
     chmod 0644 /proc/perfmgr/camera_profile
     chmod 0644 /sys/kernel/camera_profile
-    chmod 0644 /proc/perfmgr/camera_4k60
-    chmod 0644 /sys/kernel/camera_4k60
+    chmod 0666 /proc/perfmgr/camera_4k60
+    chmod 0666 /sys/kernel/camera_4k60
+    write /proc/perfmgr/camera_4k60 1
     chmod 0644 /proc/perfmgr/slog3
     chmod 0644 /sys/kernel/slog3
     chmod 0644 /proc/perfmgr/touch_game_mode
@@ -507,6 +508,7 @@ on boot
     write /proc/perfmgr/color_mode 1
     write /proc/perfmgr/wakelock_blocker 1
     write /proc/perfmgr/fast_charge 1
+    write /proc/perfmgr/camera_4k60 1
 
     # Default flash storage readahead to 512KB for smooth 4K capture and I/O
     write /sys/block/sda/queue/read_ahead_kb 512
