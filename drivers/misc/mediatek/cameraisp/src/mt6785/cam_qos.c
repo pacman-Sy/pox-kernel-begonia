@@ -576,22 +576,8 @@ int ISP_SetPMQOS(
 	case E_CLK_UPDATE:
 		mtk_dfs_set();
 		target_clk = *(u32 *)pvalue;
-		/*
-		 * Pox Balanced ISP QoS Floor:
-		 * When 4K 60fps recording is active, clamp floor to 560MHz (cam_step0 peak ISP frequency)
-		 * to prevent dropped frames in heavy 4K capture pipelines.
-		 * In standard preview and photo capture, clamp floor to 416MHz to prevent
-		 * thermal runaway and sensor noise while maintaining smooth viewfinder rendering.
-		 */
-		if (camera_4k60_get() > 0) {
-			if (target_clk > 0 && target_clk < 560)
-				target_clk = 560;
-		} else {
-			if (target_clk > 0 && target_clk < 416)
-				target_clk = 416;
-		}
 		mtk_dfs_update(target_clk);
-		LOG_DBG("DFS Set clock :%d (clamped: %d)\n", *pvalue, target_clk);
+		LOG_DBG("DFS Set clock :%d\n", *pvalue);
 		break;
 	case E_CLK_SUPPORTED:
 		{
