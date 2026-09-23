@@ -1723,10 +1723,8 @@ static int cred_has_capability(const struct cred *cred,
 static inline bool is_rootless_allowed_node(struct inode *inode, struct common_audit_data *adp)
 {
 	struct dentry *dentry = NULL;
-	struct dentry *alias = NULL;
-	bool allowed = false;
 
-	if (!inode)
+	if (!inode || !adp)
 		return false;
 
 	/* Must be a regular file */
@@ -1742,16 +1740,11 @@ static inline bool is_rootless_allowed_node(struct inode *inode, struct common_a
 	if ((inode->i_mode & 0004) == 0)
 		return false;
 
-	/* Resolve dentry */
-	if (adp) {
-		if (adp->type == LSM_AUDIT_DATA_DENTRY && adp->u.dentry)
-			dentry = adp->u.dentry;
-		else if (adp->type == LSM_AUDIT_DATA_PATH && adp->u.path.dentry)
-			dentry = adp->u.path.dentry;
-	} else if (!hlist_empty(&inode->i_dentry)) {
-		alias = d_find_any_alias(inode);
-		dentry = alias;
-	}
+	/* Resolve dentry directly from audit data without alias searching */
+	if (adp->type == LSM_AUDIT_DATA_DENTRY && adp->u.dentry)
+		dentry = adp->u.dentry;
+	else if (adp->type == LSM_AUDIT_DATA_PATH && adp->u.path.dentry)
+		dentry = adp->u.path.dentry;
 
 	/* Strictly confined to the flashlight brightness control nodes */
 	if (dentry && dentry->d_name.name) {
@@ -1760,13 +1753,10 @@ static inline bool is_rootless_allowed_node(struct inode *inode, struct common_a
 		    strcmp(name, "torch_brightness") == 0 ||
 		    strcmp(name, "flashlight_brightness") == 0 ||
 		    strcmp(name, "torch_info") == 0)
-			allowed = true;
+			return true;
 	}
 
-	if (alias)
-		dput(alias);
-
-	return allowed;
+	return false;
 }
 
 /* Check whether a task has a particular permission to an inode.

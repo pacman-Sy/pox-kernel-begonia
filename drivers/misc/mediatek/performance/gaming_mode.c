@@ -44,7 +44,7 @@ extern void pox_dynamic_fsync_set(int enable);
 
 static int gaming_mode_state = GAMING_MODE_DISABLED;
 static int user_color_mode_override = -1;
-static int camera_4k60_force = 1;
+static int camera_4k60_force = 0;
 static atomic_t pox_cam_active_sessions = ATOMIC_INIT(0);
 static struct delayed_work pox_cam_boost_decay_work;
 static DEFINE_MUTEX(gaming_mode_lock);

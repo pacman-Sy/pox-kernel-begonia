@@ -406,16 +406,15 @@ if [ -d "\$RAMDISK" ]; then
     cat << 'RC_EOF' > \$RAMDISK/init.memory_enhanced.rc
 # iOS-style On-Demand Compressed Memory Management
 on boot
-    write /proc/sys/vm/watermark_scale_factor 200
-    write /proc/sys/vm/page-cluster 0
-    write /proc/sys/vm/vfs_cache_pressure 50
+    write /proc/sys/vm/watermark_scale_factor 10
+    write /proc/sys/vm/page-cluster 3
+    write /proc/sys/vm/vfs_cache_pressure 100
     write /proc/sys/vm/swappiness 100
-    write /proc/sys/vm/dirty_ratio 10
-    write /proc/sys/vm/dirty_background_ratio 5
+    write /proc/sys/vm/dirty_ratio 20
+    write /proc/sys/vm/dirty_background_ratio 10
     write /proc/sys/vm/dirty_expire_centisecs 1500
     write /proc/sys/vm/dirty_writeback_centisecs 300
     write /proc/sys/vm/stat_interval 10
-    write /proc/sys/vm/extra_free_kbytes 24300
 
     # Low-latency high-throughput networking & Fair Queueing for BBR
     write /proc/sys/net/core/default_qdisc fq
@@ -433,16 +432,15 @@ on boot
 
 on property:sys.boot_completed=1
     write /sys/block/zram0/comp_algorithm zstd
-    write /proc/sys/vm/watermark_scale_factor 200
-    write /proc/sys/vm/page-cluster 0
-    write /proc/sys/vm/vfs_cache_pressure 50
+    write /proc/sys/vm/watermark_scale_factor 10
+    write /proc/sys/vm/page-cluster 3
+    write /proc/sys/vm/vfs_cache_pressure 100
     write /proc/sys/vm/swappiness 100
-    write /proc/sys/vm/dirty_ratio 10
-    write /proc/sys/vm/dirty_background_ratio 5
+    write /proc/sys/vm/dirty_ratio 20
+    write /proc/sys/vm/dirty_background_ratio 10
     write /proc/sys/vm/dirty_expire_centisecs 1500
     write /proc/sys/vm/dirty_writeback_centisecs 300
     write /proc/sys/vm/stat_interval 10
-    write /proc/sys/vm/extra_free_kbytes 24300
     write /proc/sys/net/core/default_qdisc fq
     write /proc/sys/net/ipv4/tcp_congestion_control bbr
     write /proc/sys/net/ipv4/tcp_autocorking 0
@@ -506,37 +504,35 @@ on boot
     write /sys/module/ged/parameters/boost_gpu_enable 1
     write /proc/perfmgr/true_tone 1
     write /proc/perfmgr/color_mode 1
-    write /proc/perfmgr/wakelock_blocker 1
     write /proc/perfmgr/fast_charge 1
-    write /proc/perfmgr/camera_4k60 1
 
-    # Default flash storage readahead to 512KB for smooth 4K capture and I/O
-    write /sys/block/sda/queue/read_ahead_kb 512
-    write /sys/block/sdb/queue/read_ahead_kb 512
-    write /sys/block/sdc/queue/read_ahead_kb 512
-    write /sys/block/mmcblk0/queue/read_ahead_kb 512
+    # Default flash storage readahead to 128KB for smooth capture and I/O
+    write /sys/block/sda/queue/read_ahead_kb 128
+    write /sys/block/sdb/queue/read_ahead_kb 128
+    write /sys/block/sdc/queue/read_ahead_kb 128
+    write /sys/block/mmcblk0/queue/read_ahead_kb 128
 
-    # Flash storage queue tuning for low CPU overhead & high IOPS
+    # Flash storage queue tuning: allow bio request merging and enable affinity
     write /sys/block/sda/queue/rq_affinity 2
     write /sys/block/sda/queue/iostats 0
     write /sys/block/sda/queue/add_random 0
-    write /sys/block/sda/queue/nomerges 1
-    write /sys/block/sda/queue/nr_requests 256
+    write /sys/block/sda/queue/nomerges 0
+    write /sys/block/sda/queue/nr_requests 128
     write /sys/block/sdb/queue/rq_affinity 2
     write /sys/block/sdb/queue/iostats 0
     write /sys/block/sdb/queue/add_random 0
-    write /sys/block/sdb/queue/nomerges 1
-    write /sys/block/sdb/queue/nr_requests 256
+    write /sys/block/sdb/queue/nomerges 0
+    write /sys/block/sdb/queue/nr_requests 128
     write /sys/block/sdc/queue/rq_affinity 2
     write /sys/block/sdc/queue/iostats 0
     write /sys/block/sdc/queue/add_random 0
-    write /sys/block/sdc/queue/nomerges 1
-    write /sys/block/sdc/queue/nr_requests 256
+    write /sys/block/sdc/queue/nomerges 0
+    write /sys/block/sdc/queue/nr_requests 128
     write /sys/block/mmcblk0/queue/rq_affinity 2
     write /sys/block/mmcblk0/queue/iostats 0
     write /sys/block/mmcblk0/queue/add_random 0
-    write /sys/block/mmcblk0/queue/nomerges 1
-    write /sys/block/mmcblk0/queue/nr_requests 256
+    write /sys/block/mmcblk0/queue/nomerges 0
+    write /sys/block/mmcblk0/queue/nr_requests 128
 
 # ROM Performance Mode / Game Space Active
 on property:persist.sys.power_mode_perf=1
