@@ -109,11 +109,39 @@ static struct DISP_PQ_PARAM g_Color_Param[2] = {
 	}
 };
 
-static int current_ios_color_mode = 1; /* Default: 1 = iOS TrueColor Reference */
+static struct DISP_PQ_PARAM g_Color_Cam_Param = {
+u4SHPGain:3,
+u4SatGain:5,
+u4PartialY:0,
+u4HueAdj:{9, 9, 9, 9},
+u4SatAdj:{0, 1, 2, 2},
+u4Contrast:5,
+u4Brightness:4,
+u4Ccorr:2,
+#if defined(COLOR_3_0)
+u4ColorLUT:0
+#endif
+};
+
+static struct DISP_PQ_PARAM g_Color_Gal_Param = {
+u4SHPGain:3,
+u4SatGain:5,
+u4PartialY:0,
+u4HueAdj:{9, 9, 9, 9},
+u4SatAdj:{0, 1, 2, 2},
+u4Contrast:5,
+u4Brightness:4,
+u4Ccorr:3,
+#if defined(COLOR_3_0)
+u4ColorLUT:0
+#endif
+};
+
+static int current_ios_color_mode = 1; /* Default: 1 = True Tone / iOS Calibrated D65 Reference */
 
 int set_ios_color_mode(int mode)
 {
-	if (mode < 0 || mode > 2)
+	if (mode < 0 || mode > 3)
 		return -EINVAL;
 
 	current_ios_color_mode = mode;
@@ -128,8 +156,28 @@ int set_ios_color_mode(int mode)
 		g_Color_Param[0].u4SatAdj[1] = 0;
 		g_Color_Param[0].u4SatAdj[2] = 0;
 		g_Color_Param[0].u4SatAdj[3] = 0;
+
+		/* Camera PQ */
+		g_Color_Cam_Param.u4SHPGain = 2;
+		g_Color_Cam_Param.u4SatGain = 4;
+		g_Color_Cam_Param.u4Contrast = 4;
+		g_Color_Cam_Param.u4Brightness = 4;
+		g_Color_Cam_Param.u4SatAdj[0] = 0;
+		g_Color_Cam_Param.u4SatAdj[1] = 0;
+		g_Color_Cam_Param.u4SatAdj[2] = 0;
+		g_Color_Cam_Param.u4SatAdj[3] = 0;
+
+		/* Gallery PQ */
+		g_Color_Gal_Param.u4SHPGain = 2;
+		g_Color_Gal_Param.u4SatGain = 4;
+		g_Color_Gal_Param.u4Contrast = 4;
+		g_Color_Gal_Param.u4Brightness = 4;
+		g_Color_Gal_Param.u4SatAdj[0] = 0;
+		g_Color_Gal_Param.u4SatAdj[1] = 0;
+		g_Color_Gal_Param.u4SatAdj[2] = 0;
+		g_Color_Gal_Param.u4SatAdj[3] = 0;
 	} else if (mode == 1) {
-		/* Mode 1: iOS TrueColor Reference (Calibrated D65 Liquid Retina) */
+		/* Mode 1: True Tone / iOS Calibrated D65 Reference (Liquid Retina Default) */
 		g_Color_Param[0].u4SHPGain = 3;
 		g_Color_Param[0].u4SatGain = 5;
 		g_Color_Param[0].u4Contrast = 5;
@@ -138,6 +186,26 @@ int set_ios_color_mode(int mode)
 		g_Color_Param[0].u4SatAdj[1] = 1;
 		g_Color_Param[0].u4SatAdj[2] = 2;
 		g_Color_Param[0].u4SatAdj[3] = 2;
+
+		/* Camera PQ - Leica crisp edge detail & vibrant depth */
+		g_Color_Cam_Param.u4SHPGain = 3;
+		g_Color_Cam_Param.u4SatGain = 5;
+		g_Color_Cam_Param.u4Contrast = 5;
+		g_Color_Cam_Param.u4Brightness = 4;
+		g_Color_Cam_Param.u4SatAdj[0] = 0;
+		g_Color_Cam_Param.u4SatAdj[1] = 1;
+		g_Color_Cam_Param.u4SatAdj[2] = 2;
+		g_Color_Cam_Param.u4SatAdj[3] = 2;
+
+		/* Gallery PQ */
+		g_Color_Gal_Param.u4SHPGain = 3;
+		g_Color_Gal_Param.u4SatGain = 5;
+		g_Color_Gal_Param.u4Contrast = 5;
+		g_Color_Gal_Param.u4Brightness = 4;
+		g_Color_Gal_Param.u4SatAdj[0] = 0;
+		g_Color_Gal_Param.u4SatAdj[1] = 1;
+		g_Color_Gal_Param.u4SatAdj[2] = 2;
+		g_Color_Gal_Param.u4SatAdj[3] = 2;
 	} else if (mode == 2) {
 		/* Mode 2: iOS Vivid / Gaming Cinema (Enhanced HDR for Games & Movies) */
 		g_Color_Param[0].u4SHPGain = 4;
@@ -148,6 +216,56 @@ int set_ios_color_mode(int mode)
 		g_Color_Param[0].u4SatAdj[1] = 2;
 		g_Color_Param[0].u4SatAdj[2] = 3;
 		g_Color_Param[0].u4SatAdj[3] = 3;
+
+		/* Camera PQ */
+		g_Color_Cam_Param.u4SHPGain = 4;
+		g_Color_Cam_Param.u4SatGain = 6;
+		g_Color_Cam_Param.u4Contrast = 6;
+		g_Color_Cam_Param.u4Brightness = 5;
+		g_Color_Cam_Param.u4SatAdj[0] = 1;
+		g_Color_Cam_Param.u4SatAdj[1] = 2;
+		g_Color_Cam_Param.u4SatAdj[2] = 3;
+		g_Color_Cam_Param.u4SatAdj[3] = 3;
+
+		/* Gallery PQ */
+		g_Color_Gal_Param.u4SHPGain = 4;
+		g_Color_Gal_Param.u4SatGain = 6;
+		g_Color_Gal_Param.u4Contrast = 6;
+		g_Color_Gal_Param.u4Brightness = 5;
+		g_Color_Gal_Param.u4SatAdj[0] = 1;
+		g_Color_Gal_Param.u4SatAdj[1] = 2;
+		g_Color_Gal_Param.u4SatAdj[2] = 3;
+		g_Color_Gal_Param.u4SatAdj[3] = 3;
+	} else if (mode == 3) {
+		/* Mode 3: Sony S-Log3 / Cinema Flat Profile (Logarithmic Dynamic Range for LUT Grading) */
+		g_Color_Param[0].u4SHPGain = 0;       /* No digital artificial edge sharpening, organic texture */
+		g_Color_Param[0].u4SatGain = 2;       /* Flat neutral saturation for wide-gamut log */
+		g_Color_Param[0].u4Contrast = 1;      /* Flat contrast curve, lifted shadow floor, no highlight clipping */
+		g_Color_Param[0].u4Brightness = 5;    /* Lifted exposure latitude */
+		g_Color_Param[0].u4SatAdj[0] = 0;
+		g_Color_Param[0].u4SatAdj[1] = 0;     /* True neutral skin tone */
+		g_Color_Param[0].u4SatAdj[2] = 0;
+		g_Color_Param[0].u4SatAdj[3] = 0;
+
+		/* Configure camera PQ param for flat logarithmic preview */
+		g_Color_Cam_Param.u4SHPGain = 0;
+		g_Color_Cam_Param.u4SatGain = 2;
+		g_Color_Cam_Param.u4Contrast = 1;
+		g_Color_Cam_Param.u4Brightness = 5;
+		g_Color_Cam_Param.u4SatAdj[0] = 0;
+		g_Color_Cam_Param.u4SatAdj[1] = 0;
+		g_Color_Cam_Param.u4SatAdj[2] = 0;
+		g_Color_Cam_Param.u4SatAdj[3] = 0;
+
+		/* Gallery PQ flat for log review */
+		g_Color_Gal_Param.u4SHPGain = 0;
+		g_Color_Gal_Param.u4SatGain = 2;
+		g_Color_Gal_Param.u4Contrast = 1;
+		g_Color_Gal_Param.u4Brightness = 5;
+		g_Color_Gal_Param.u4SatAdj[0] = 0;
+		g_Color_Gal_Param.u4SatAdj[1] = 0;
+		g_Color_Gal_Param.u4SatAdj[2] = 0;
+		g_Color_Gal_Param.u4SatAdj[3] = 0;
 	}
 
 	g_Color_Param[1] = g_Color_Param[0];
@@ -160,34 +278,6 @@ int get_ios_color_mode(void)
 	return current_ios_color_mode;
 }
 EXPORT_SYMBOL(get_ios_color_mode);
-
-static struct DISP_PQ_PARAM g_Color_Cam_Param = {
-u4SHPGain:0,
-u4SatGain:4,
-u4PartialY:0,
-u4HueAdj:{9, 9, 9, 9},
-u4SatAdj:{0, 0, 0, 0},
-u4Contrast:4,
-u4Brightness:4,
-u4Ccorr:2,
-#if defined(COLOR_3_0)
-u4ColorLUT:0
-#endif
-};
-
-static struct DISP_PQ_PARAM g_Color_Gal_Param = {
-u4SHPGain:2,
-u4SatGain:4,
-u4PartialY:0,
-u4HueAdj:{9, 9, 9, 9},
-u4SatAdj:{0, 0, 0, 0},
-u4Contrast:4,
-u4Brightness:4,
-u4Ccorr:3,
-#if defined(COLOR_3_0)
-u4ColorLUT:0
-#endif
-};
 
 static struct DISP_PQ_DC_PARAM g_PQ_DC_Param = {
 param:
