@@ -90,7 +90,12 @@ else
     ZIP_BASE="${KERNEL_NAME}-${KERNEL_VERSION}-${VERSION_NAME}-${GIT_BRANCH}-${COMMIT_HASH}-${DEVICE_CODENAME}"
 fi
 
-log()  { printf '\033[1;32m[*] %s\033[0m\n' "$*"; }
+# ZIP_BASE is used as a filesystem path, so branch separators must not create
+# implicit directories. Keep the original branch in release metadata.
+ZIP_BASE="${ZIP_BASE//\//-}"
+ZIP_BASE="${ZIP_BASE//[^[:alnum:]._-]/-}"
+
+log() { printf '\033[1;32m[*] %s\033[0m\n' "$*"; }
 warn() { printf '\033[1;33m[!] %s\033[0m\n' "$*"; }
 err()  { printf '\033[1;31m[-] %s\033[0m\n' "$*"; }
 
