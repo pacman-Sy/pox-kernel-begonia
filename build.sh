@@ -710,9 +710,11 @@ AK_EOF
     (cd "$stage" && zip -r9 "$zip_file" . -x '*.git*' -x '.github*')
     rm -rf "$stage"
 
-    # Also maintain latest.zip, versioned zip, and date-stamped copies in build/
-    cp -f "$zip_file" "$BUILD_DIR/${KERNEL_NAME}-${KERNEL_VERSION}-${VERSION_NAME}-${GIT_BRANCH}-${DATE}.zip"
-    cp -f "$zip_file" "$BUILD_DIR/${KERNEL_NAME}-${KERNEL_VERSION}-${VERSION_NAME}-${GIT_BRANCH}-${DEVICE_CODENAME}.zip"
+    # Also maintain latest.zip, commit, dated, and device aliases in build/.
+    # Derive every path from sanitized ZIP_BASE so branch separators cannot
+    # create implicit directories.
+    cp -f "$zip_file" "$BUILD_DIR/${ZIP_BASE}-${DATE}.zip"
+    cp -f "$zip_file" "$BUILD_DIR/${ZIP_BASE}-${DEVICE_CODENAME}.zip"
     ln -sf "$(basename "$zip_file")" "$BUILD_DIR/latest.zip"
     ln -sf "$(basename "$zip_file")" "$BUILD_DIR/${COMMIT_HASH}.zip"
 
@@ -721,7 +723,7 @@ AK_EOF
     log "Package ZIP:   $zip_file"
     log "Commit Link:   $BUILD_DIR/${COMMIT_HASH}.zip"
     log "Latest Link:   $BUILD_DIR/latest.zip"
-    log "Branch Link:   $BUILD_DIR/${KERNEL_NAME}-${KERNEL_VERSION}-${VERSION_NAME}-${GIT_BRANCH}-${DEVICE_CODENAME}.zip"
+    log "Branch Link:   $BUILD_DIR/${ZIP_BASE}-${DEVICE_CODENAME}.zip"
     log "Kernel Image:  $BUILD_DIR/Image.gz-dtb"
     log "================================================="
 }
