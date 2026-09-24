@@ -473,11 +473,15 @@ on boot
     chmod 0666 /sys/devices/platform/flashlights_mt6360/torchbrightness
     chmod 0644 /proc/perfmgr/camera_profile
     chmod 0644 /sys/kernel/camera_profile
-    chmod 0666 /proc/perfmgr/camera_4k60
-    chmod 0666 /sys/kernel/camera_4k60
-    write /proc/perfmgr/camera_4k60 1
     chmod 0644 /proc/perfmgr/slog3
     chmod 0644 /sys/kernel/slog3
+    chmod 0666 /dev/bus/usb
+    chmod 0666 /dev/ttyUSB0
+    chmod 0666 /dev/ttyUSB1
+    chmod 0666 /dev/ttyUSB2
+    chmod 0666 /dev/ttyUSB3
+    chmod 0666 /dev/ttyACM0
+    chmod 0666 /dev/ttyACM1
     chmod 0644 /proc/perfmgr/touch_game_mode
     chmod 0644 /proc/perfmgr/touch_sensitivity
     chmod 0644 /sys/class/touch/touch_dev/touch_game_mode
@@ -669,6 +673,7 @@ ui_print "     - True Tone Display Engine: Calibrated D65 Liquid Retina referenc
 ui_print "     - Video Anti-Lag Engine: VDEC/VENC clock floor & LP4-2100 DDR active";
 ui_print "     - Zero Frame-Drop Gaming Mode: active on ROM Performance toggle";
 ui_print "     - FPSGO Ultra-Rescue + Mali-G76 MC4 Touch Boost: enabled";
+ui_print "     - Universal USB OTG: DACs, controllers, serial & ethernet active";
 write_boot;
 
 ui_print " [*] [4/4] Cleaning up temporary installer files...";
