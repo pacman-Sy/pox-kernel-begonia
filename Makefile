@@ -370,16 +370,16 @@ HOSTLDFLAGS  := $(HOST_LFS_LDFLAGS)
 HOST_LOADLIBES := $(HOST_LFS_LIBS)
 
 # Make variables (CC, etc...)
-AS		= $(CROSS_COMPILE)as
-LD		= $(CROSS_COMPILE)ld
-LDGOLD		= $(CROSS_COMPILE)ld.gold
-CC		= $(CROSS_COMPILE)gcc
+AS		= $(CURDIR)/kerdevdep/clang/bin/llvm-as
+LD		= $(CURDIR)/kerdevdep/clang/bin/ld.lld
+LDGOLD		= $(CURDIR)/kerdevdep/clang/bin/ld.lld
+CC		= clang
 CPP		= $(CC) -E
-AR		= $(CROSS_COMPILE)ar
-NM		= $(CROSS_COMPILE)nm
-STRIP		= $(CROSS_COMPILE)strip
-OBJCOPY		= $(CROSS_COMPILE)objcopy
-OBJDUMP		= $(CROSS_COMPILE)objdump
+AR		= $(CURDIR)/kerdevdep/clang/bin/llvm-ar
+NM		= $(CURDIR)/kerdevdep/clang/bin/llvm-nm
+STRIP		= $(CURDIR)/kerdevdep/clang/bin/llvm-strip
+OBJCOPY		= $(CURDIR)/kerdevdep/clang/bin/llvm-objcopy
+OBJDUMP		= $(CURDIR)/kerdevdep/clang/bin/llvm-objdump
 AWK		= awk
 GENKSYMS	= scripts/genksyms/genksyms
 INSTALLKERNEL  := installkernel
