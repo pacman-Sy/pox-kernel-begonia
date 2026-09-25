@@ -159,6 +159,9 @@ fi
 WRAPPERS
 chmod +x bin/ccache
 
+# Clang's -no-integrated-as mode looks for an executable named "as".
+ln -sf llvm-as "$SCRIPT_DIR/clang/bin/as"
+
 # Symlink clang binaries
 for f in clang/bin/*; do
     name="$(basename "$f")"
