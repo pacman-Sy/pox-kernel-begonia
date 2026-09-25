@@ -120,6 +120,7 @@ export NM="$KERDEVDEP/clang/bin/llvm-nm"
 export OBJCOPY="$KERDEVDEP/clang/bin/llvm-objcopy"
 export OBJDUMP="$KERDEVDEP/clang/bin/llvm-objdump"
 export STRIP="$KERDEVDEP/clang/bin/llvm-strip"
+EXTRA_FLAGS="${EXTRA_FLAGS:-} AS=$AS LD=$LD AR=$AR NM=$NM OBJCOPY=$OBJCOPY OBJDUMP=$OBJDUMP STRIP=$STRIP"
 AK3_DIR="$KERDEVDEP/anykernel"
 
 export KBUILD_BUILD_USER="${KBUILD_BUILD_USER:-TXO_R}"
