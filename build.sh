@@ -113,6 +113,13 @@ ARCH=arm64
 CC=clang
 CLANG_TRIPLE=aarch64-linux-gnu-
 CROSS_COMPILE=aarch64-linux-android-
+export AS="$KERDEVDEP/clang/bin/llvm-as"
+export LD="$KERDEVDEP/clang/bin/ld.lld"
+export AR="$KERDEVDEP/clang/bin/llvm-ar"
+export NM="$KERDEVDEP/clang/bin/llvm-nm"
+export OBJCOPY="$KERDEVDEP/clang/bin/llvm-objcopy"
+export OBJDUMP="$KERDEVDEP/clang/bin/llvm-objdump"
+export STRIP="$KERDEVDEP/clang/bin/llvm-strip"
 AK3_DIR="$KERDEVDEP/anykernel"
 
 export KBUILD_BUILD_USER="${KBUILD_BUILD_USER:-TXO_R}"
