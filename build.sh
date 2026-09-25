@@ -112,7 +112,7 @@ source "$KERDEVDEP/env.sh"
 ARCH=arm64
 CC=clang
 CLANG_TRIPLE=aarch64-linux-gnu-
-CROSS_COMPILE=aarch64-linux-android-
+CROSS_COMPILE="$KERDEVDEP/clang/bin/llvm-"
 export AS="$KERDEVDEP/clang/bin/llvm-as"
 export LD="$KERDEVDEP/clang/bin/ld.lld"
 export AR="$KERDEVDEP/clang/bin/llvm-ar"
