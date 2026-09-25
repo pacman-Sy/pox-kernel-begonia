@@ -152,6 +152,12 @@ prepare_config() {
     fi
 
     if ! "$KERDEVDEP/clang/bin/clang" --target=aarch64-linux-gnu \
+        -fstack-protector-strong -c "$test_src" -o /dev/null 2>/dev/null; then
+        log "Toolchain rejects -fstack-protector-strong - disabling CONFIG_CC_STACKPROTECTOR_STRONG"
+        ./scripts/config --file "$OUT_DIR/.config" --disable CC_STACKPROTECTOR_STRONG
+    fi
+
+    if ! "$KERDEVDEP/clang/bin/clang" --target=aarch64-linux-gnu \
         -mllvm -unroll-threshold=1200 -mllvm -unroll-threshold=900 \
         -mllvm -inline-threshold=2000 -mllvm -inline-threshold=1300 \
         -c "$test_src" -o /dev/null 2>/dev/null; then
