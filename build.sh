@@ -110,7 +110,7 @@ fi
 source "$KERDEVDEP/env.sh"
 
 ARCH=arm64
-CC=clang
+CC="clang -B$KERDEVDEP/clang/bin/"
 CLANG_TRIPLE=aarch64-linux-gnu-
 CROSS_COMPILE="$KERDEVDEP/clang/bin/llvm-"
 AS="$KERDEVDEP/clang/bin/llvm-as"
