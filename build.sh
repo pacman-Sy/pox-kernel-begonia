@@ -113,13 +113,13 @@ ARCH=arm64
 CC=clang
 CLANG_TRIPLE=aarch64-linux-gnu-
 CROSS_COMPILE="$KERDEVDEP/clang/bin/llvm-"
-export AS="$KERDEVDEP/clang/bin/llvm-as"
-export LD="$KERDEVDEP/clang/bin/ld.lld"
-export AR="$KERDEVDEP/clang/bin/llvm-ar"
-export NM="$KERDEVDEP/clang/bin/llvm-nm"
-export OBJCOPY="$KERDEVDEP/clang/bin/llvm-objcopy"
-export OBJDUMP="$KERDEVDEP/clang/bin/llvm-objdump"
-export STRIP="$KERDEVDEP/clang/bin/llvm-strip"
+AS="$KERDEVDEP/clang/bin/llvm-as"
+LD="$KERDEVDEP/clang/bin/ld.lld"
+AR="$KERDEVDEP/clang/bin/llvm-ar"
+NM="$KERDEVDEP/clang/bin/llvm-nm"
+OBJCOPY="$KERDEVDEP/clang/bin/llvm-objcopy"
+OBJDUMP="$KERDEVDEP/clang/bin/llvm-objdump"
+STRIP="$KERDEVDEP/clang/bin/llvm-strip"
 EXTRA_FLAGS="${EXTRA_FLAGS:-} AS=$AS LD=$LD AR=$AR NM=$NM OBJCOPY=$OBJCOPY OBJDUMP=$OBJDUMP STRIP=$STRIP"
 AK3_DIR="$KERDEVDEP/anykernel"
 
