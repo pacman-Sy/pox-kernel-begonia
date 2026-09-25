@@ -14,13 +14,32 @@ GCC_URL="https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch
 AK3_URL="https://github.com/osm0sis/AnyKernel3/archive/refs/heads/master.zip"
 
 log() { printf '\033[1;34m[kerdevdep] %s\033[0m\n' "$*"; }
+err() { printf '\033[1;31m[kerdevdep] %s\033[0m\n' "$*" >&2; }
+
+download_archive() {
+    local url="$1" output="$2" attempts=5
+    rm -f "$output"
+    for ((attempt=1; attempt<=attempts; attempt++)); do
+        log "Downloading ${output} (attempt ${attempt}/${attempts}) ..."
+        if curl -L --fail --retry 3 --retry-delay 2 --connect-timeout 30 --max-time 900 -o "$output" "$url"; then
+            if tar -tzf "$output" >/dev/null 2>&1 || unzip -tq "$output" >/dev/null 2>&1; then
+                return 0
+            fi
+            log "Archive validation failed; discarding partial download"
+        fi
+        rm -f "$output"
+        sleep "$((attempt * 3))"
+    done
+    err "Unable to download a valid archive from $url"
+    return 1
+}
 
 mkdir -p bin clang gcc anykernel usr/share/bison lib
 
 # 1. Download Clang if missing
 if [[ ! -x "clang/bin/clang" ]]; then
     log "Downloading Android Clang (${CLANG_VER}) ..."
-    curl -L --fail --retry 3 -o clang.tar.gz "$CLANG_URL"
+    download_archive "$CLANG_URL" clang.tar.gz
     tar -xzf clang.tar.gz -C clang
     rm -f clang.tar.gz
 fi
@@ -28,7 +47,7 @@ fi
 # 2. Download GCC binutils if missing
 if [[ ! -x "gcc/bin/aarch64-linux-android-ld" ]]; then
     log "Downloading GCC 4.9 binutils (${GCC_VER}) ..."
-    curl -L --fail --retry 3 -o gcc.tar.gz "$GCC_URL"
+    download_archive "$GCC_URL" gcc.tar.gz
     tar -xzf gcc.tar.gz -C gcc
     rm -f gcc.tar.gz
 fi
@@ -36,7 +55,7 @@ fi
 # 3. Download AnyKernel3 template if missing
 if [[ ! -f "anykernel/anykernel.sh" ]]; then
     log "Downloading AnyKernel3 template ..."
-    curl -L --fail --retry 3 -o ak3.zip "$AK3_URL"
+    download_archive "$AK3_URL" ak3.zip
     mkdir -p ak3-tmp
     unzip -q ak3.zip -d ak3-tmp
     cp -r ak3-tmp/AnyKernel3-master/. anykernel/
