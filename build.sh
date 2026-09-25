@@ -180,6 +180,7 @@ prepare_config() {
     # shellcheck disable=SC2086
     make O="$OUT_DIR" ARCH="$ARCH" CC="$CC" \
         CLANG_TRIPLE="$CLANG_TRIPLE" CROSS_COMPILE="$CROSS_COMPILE" \
+        AS="$AS" LD="$LD" AR="$AR" NM="$NM" OBJCOPY="$OBJCOPY" OBJDUMP="$OBJDUMP" STRIP="$STRIP" \
         $EXTRA_FLAGS olddefconfig
     rm -f "$test_src"
 }
@@ -191,11 +192,13 @@ run_menuconfig() {
         # shellcheck disable=SC2086
         make O="$OUT_DIR" ARCH="$ARCH" CC="$CC" \
             CLANG_TRIPLE="$CLANG_TRIPLE" CROSS_COMPILE="$CROSS_COMPILE" \
+        AS="$AS" LD="$LD" AR="$AR" NM="$NM" OBJCOPY="$OBJCOPY" OBJDUMP="$OBJDUMP" STRIP="$STRIP" \
             $EXTRA_FLAGS "$DEFCONFIG"
         prepare_config
     fi
     make O="$OUT_DIR" ARCH="$ARCH" CC="$CC" \
         CLANG_TRIPLE="$CLANG_TRIPLE" CROSS_COMPILE="$CROSS_COMPILE" \
+        AS="$AS" LD="$LD" AR="$AR" NM="$NM" OBJCOPY="$OBJCOPY" OBJDUMP="$OBJDUMP" STRIP="$STRIP" \
         menuconfig
 }
 
@@ -232,6 +235,7 @@ build_kernel() {
         # shellcheck disable=SC2086
         make O="$OUT_DIR" ARCH="$ARCH" CC="$bcc" \
             CLANG_TRIPLE="$CLANG_TRIPLE" CROSS_COMPILE="$CROSS_COMPILE" \
+        AS="$AS" LD="$LD" AR="$AR" NM="$NM" OBJCOPY="$OBJCOPY" OBJDUMP="$OBJDUMP" STRIP="$STRIP" \
             $EXTRA_FLAGS "$DEFCONFIG"
         prepare_config
     else
@@ -240,6 +244,7 @@ build_kernel() {
         # shellcheck disable=SC2086
         make O="$OUT_DIR" ARCH="$ARCH" CC="$bcc" \
             CLANG_TRIPLE="$CLANG_TRIPLE" CROSS_COMPILE="$CROSS_COMPILE" \
+        AS="$AS" LD="$LD" AR="$AR" NM="$NM" OBJCOPY="$OBJCOPY" OBJDUMP="$OBJDUMP" STRIP="$STRIP" \
             $EXTRA_FLAGS olddefconfig
         # Ensure version headers are regenerated so UTS_RELEASE and compile.h always match
         rm -f "$OUT_DIR/include/config/kernel.release" "$OUT_DIR/include/generated/utsrelease.h" "$OUT_DIR/include/generated/compile.h" "$OUT_DIR/init/version.o"
@@ -270,6 +275,7 @@ build_kernel() {
     # shellcheck disable=SC2086
     nice -n 10 make O="$OUT_DIR" ARCH="$ARCH" CC="$bcc" \
         CLANG_TRIPLE="$CLANG_TRIPLE" CROSS_COMPILE="$CROSS_COMPILE" \
+        AS="$AS" LD="$LD" AR="$AR" NM="$NM" OBJCOPY="$OBJCOPY" OBJDUMP="$OBJDUMP" STRIP="$STRIP" \
         $EXTRA_FLAGS -j"$JOBS"
 
     local image="$OUT_DIR/arch/arm64/boot/Image.gz-dtb"
