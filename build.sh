@@ -178,7 +178,7 @@ prepare_config() {
     ./scripts/config --file "$OUT_DIR/.config" --set-str LOCALVERSION "$CUSTOM_LOCALVERSION"
 
     # shellcheck disable=SC2086
-    make O="$OUT_DIR" ARCH="$ARCH" CC="$CC" \
+    make O="$OUT_DIR" ARCH="$ARCH" CC="$CC" HOSTCC=gcc \
         CLANG_TRIPLE="$CLANG_TRIPLE" CROSS_COMPILE="$CROSS_COMPILE" \
         AS="$AS" LD="$LD" AR="$AR" NM="$NM" OBJCOPY="$OBJCOPY" OBJDUMP="$OBJDUMP" STRIP="$STRIP" \
         $EXTRA_FLAGS olddefconfig
@@ -190,13 +190,13 @@ run_menuconfig() {
     if [[ ! -f "$OUT_DIR/.config" ]]; then
         log "Generating defconfig ($DEFCONFIG) ..."
         # shellcheck disable=SC2086
-        make O="$OUT_DIR" ARCH="$ARCH" CC="$CC" \
+        make O="$OUT_DIR" ARCH="$ARCH" CC="$CC" HOSTCC=gcc \
             CLANG_TRIPLE="$CLANG_TRIPLE" CROSS_COMPILE="$CROSS_COMPILE" \
         AS="$AS" LD="$LD" AR="$AR" NM="$NM" OBJCOPY="$OBJCOPY" OBJDUMP="$OBJDUMP" STRIP="$STRIP" \
             $EXTRA_FLAGS "$DEFCONFIG"
         prepare_config
     fi
-    make O="$OUT_DIR" ARCH="$ARCH" CC="$CC" \
+    make O="$OUT_DIR" ARCH="$ARCH" CC="$CC" HOSTCC=gcc \
         CLANG_TRIPLE="$CLANG_TRIPLE" CROSS_COMPILE="$CROSS_COMPILE" \
         AS="$AS" LD="$LD" AR="$AR" NM="$NM" OBJCOPY="$OBJCOPY" OBJDUMP="$OBJDUMP" STRIP="$STRIP" \
         menuconfig
@@ -233,7 +233,7 @@ build_kernel() {
     if [[ ! -f "$OUT_DIR/.config" ]]; then
         log "Configuring with $DEFCONFIG ..."
         # shellcheck disable=SC2086
-        make O="$OUT_DIR" ARCH="$ARCH" CC="$bcc" \
+        make O="$OUT_DIR" ARCH="$ARCH" CC="$bcc" HOSTCC=gcc \
             CLANG_TRIPLE="$CLANG_TRIPLE" CROSS_COMPILE="$CROSS_COMPILE" \
         AS="$AS" LD="$LD" AR="$AR" NM="$NM" OBJCOPY="$OBJCOPY" OBJDUMP="$OBJDUMP" STRIP="$STRIP" \
             $EXTRA_FLAGS "$DEFCONFIG"
@@ -242,7 +242,7 @@ build_kernel() {
         log "Reusing existing .config in $OUT_DIR"
         ./scripts/config --file "$OUT_DIR/.config" --set-str LOCALVERSION "$CUSTOM_LOCALVERSION"
         # shellcheck disable=SC2086
-        make O="$OUT_DIR" ARCH="$ARCH" CC="$bcc" \
+        make O="$OUT_DIR" ARCH="$ARCH" CC="$bcc" HOSTCC=gcc \
             CLANG_TRIPLE="$CLANG_TRIPLE" CROSS_COMPILE="$CROSS_COMPILE" \
         AS="$AS" LD="$LD" AR="$AR" NM="$NM" OBJCOPY="$OBJCOPY" OBJDUMP="$OBJDUMP" STRIP="$STRIP" \
             $EXTRA_FLAGS olddefconfig
@@ -273,7 +273,7 @@ build_kernel() {
 
     log "Starting kernel compilation (nice priority, jobs: $JOBS)..."
     # shellcheck disable=SC2086
-    nice -n 10 make O="$OUT_DIR" ARCH="$ARCH" CC="$bcc" \
+    nice -n 10 make O="$OUT_DIR" ARCH="$ARCH" CC="$bcc" HOSTCC=gcc \
         CLANG_TRIPLE="$CLANG_TRIPLE" CROSS_COMPILE="$CROSS_COMPILE" \
         AS="$AS" LD="$LD" AR="$AR" NM="$NM" OBJCOPY="$OBJCOPY" OBJDUMP="$OBJDUMP" STRIP="$STRIP" \
         $EXTRA_FLAGS -j"$JOBS"
