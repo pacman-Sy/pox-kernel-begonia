@@ -1090,6 +1090,10 @@ long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
 	struct open_flags op;
 	int fd = build_open_flags(flags, mode, &op);
 	struct filename *tmp;
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+	char susfs_redirected_name[SUSFS_MAX_LEN_PATHNAME];
+	bool susfs_redirected_once = false;
+#endif
 
 	if (fd)
 		return fd;
@@ -1099,32 +1103,11 @@ long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
 		return PTR_ERR(tmp);
 
 	fd = get_unused_fd_flags(flags);
-	if (fd >= 0) {
-		struct file *f = do_filp_open(dfd, tmp, &op);
-
-		if (IS_ERR(f)) {
-			put_unused_fd(fd);
-			fd = PTR_ERR(f);
-		} else {
-			fsnotify_open(f);
-#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
-	char susfs_redirected_name[SUSFS_MAX_LEN_PATHNAME];
-	bool susfs_redirected_once = false;
-#endif
-			fd_install(fd, f);
-		}
-	}
-	putname(tmp);
-	return fd;
-}
-
-SYSCALL_DEFINE3(open, const char __user *, filename, int, flags, umode_t, mode)
-{
 #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
 susfs_open_redirect_retry:
 #endif
-	if (force_o_largefile())
-		flags |= O_LARGEFILE;
+	if (fd >= 0) {
+		struct file *f = do_filp_open(dfd, tmp, &op);
 #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
 		if (!susfs_redirected_once && f && !IS_ERR(f)) {
 			struct inode *inode = file_inode(f);
@@ -1147,6 +1130,24 @@ susfs_open_redirect_retry:
 			}
 		}
 #endif
+		if (IS_ERR(f)) {
+			put_unused_fd(fd);
+			fd = PTR_ERR(f);
+		} else {
+			fsnotify_open(f);
+			fd_install(fd, f);
+		}
+	}
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+#endif // #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+	putname(tmp);
+	return fd;
+}
+
+SYSCALL_DEFINE3(open, const char __user *, filename, int, flags, umode_t, mode)
+{
+	if (force_o_largefile())
+		flags |= O_LARGEFILE;
 
 	return do_sys_open(AT_FDCWD, filename, flags, mode);
 }
