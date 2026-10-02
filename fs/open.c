@@ -1080,6 +1080,11 @@ struct file *filp_clone_open(struct file *oldfile)
 }
 EXPORT_SYMBOL(filp_clone_open);
 
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+#include <linux/susfs_def.h>
+extern int susfs_open_redirect_spoof_do_sys_openat(struct inode *inode, char *out_redirected_name, size_t out_len);
+#endif
+
 long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
 {
 	struct open_flags op;
@@ -1096,10 +1101,6 @@ long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
 	fd = get_unused_fd_flags(flags);
 	if (fd >= 0) {
 		struct file *f = do_filp_open(dfd, tmp, &op);
-#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
-#include <linux/susfs_def.h>
-extern int susfs_open_redirect_spoof_do_sys_openat(struct inode *inode, char *out_redirected_name, size_t out_len);
-#endif
 
 		if (IS_ERR(f)) {
 			put_unused_fd(fd);
