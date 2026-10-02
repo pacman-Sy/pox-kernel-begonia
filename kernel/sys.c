@@ -599,16 +599,16 @@ error:
  * and suid.  This allows you to implement the 4.4 compatible seteuid().
  */
 #ifdef CONFIG_KSU
-	if (ksu_handle_setresuid(ruid, euid))
-		return 0;
-#endif
-
-#ifdef CONFIG_KSU
 extern int ksu_handle_setresuid(uid_t old_uid, uid_t new_uid);
 #endif
 
 SYSCALL_DEFINE3(setresuid, uid_t, ruid, uid_t, euid, uid_t, suid)
 {
+#ifdef CONFIG_KSU
+	if (ksu_handle_setresuid(ruid, euid))
+		return 0;
+#endif
+
 	struct user_namespace *ns = current_user_ns();
 	const struct cred *old;
 	struct cred *new;

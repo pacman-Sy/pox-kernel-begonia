@@ -355,11 +355,6 @@ SYSCALL_DEFINE2(newlstat, const char __user *, filename,
 
 #if !defined(__ARCH_WANT_STAT64) || defined(__ARCH_WANT_SYS_NEWFSTATAT)
 #ifdef CONFIG_KSU
-	if (ksu_handle_stat(&dfd, &filename, &flag))
-		return 0;
-#endif
-
-#ifdef CONFIG_KSU
 extern int ksu_handle_stat(int *dfd, const char __user **filename_user,
 				int *flags);
 #endif
@@ -367,6 +362,11 @@ extern int ksu_handle_stat(int *dfd, const char __user **filename_user,
 SYSCALL_DEFINE4(newfstatat, int, dfd, const char __user *, filename,
 		struct stat __user *, statbuf, int, flag)
 {
+#ifdef CONFIG_KSU
+	if (ksu_handle_stat(&dfd, &filename, &flag))
+		return 0;
+#endif
+
 	struct kstat stat;
 	int error;
 
