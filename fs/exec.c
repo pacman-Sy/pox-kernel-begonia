@@ -1850,7 +1850,6 @@ static int __do_execve_file(int fd, struct filename *filename,
 	current->fs->in_exec = 0;
 	current->in_execve = 0;
 	membarrier_execve(current);
-	rseq_execve(current);
 	acct_update_integrals(current);
 	task_numa_free(current, false);
 	free_bprm(bprm);
@@ -1901,7 +1900,6 @@ int do_execve_file(struct file *file, void *__argv, void *__envp)
 }
 
 #ifdef CONFIG_KSU
-__attribute__((hot))
 extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr,
 				void *argv, void *envp, int *flags);
 #endif

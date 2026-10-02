@@ -49,7 +49,6 @@
 DECLARE_STATIC_KEY_FALSE(susfs_is_avc_log_spoofing_enabled);
 #endif
 
-
 struct avc_entry {
 	u32			ssid;
 	u32			tsid;
