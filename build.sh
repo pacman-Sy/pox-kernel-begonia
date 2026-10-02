@@ -137,6 +137,32 @@ distclean_build() {
     log "Distclean complete."
 }
 
+# The KernelSU driver is kept as a pristine upstream submodule so it stays
+# trackable, which means local fixes can't be committed into it directly.
+# Keep them here instead and apply them on top of the checkout. Paths inside
+# the patches are relative to the KernelSU submodule root.
+apply_root_patches() {
+    local patch_dir="$ROOT_DIR/ksu-patches/$GIT_BRANCH"
+    [[ -d "$patch_dir" ]] || return 0
+
+    local patch_file
+    shopt -s nullglob
+    for patch_file in "$patch_dir"/*.patch; do
+        if git -C "$ROOT_DIR" apply --directory=KernelSU --reverse \
+                --check "$patch_file" 2>/dev/null; then
+            continue   # already applied
+        fi
+        if git -C "$ROOT_DIR" apply --directory=KernelSU --check \
+                "$patch_file" 2>/dev/null; then
+            log "Applying patch $(basename "$patch_file") ..."
+            git -C "$ROOT_DIR" apply --directory=KernelSU "$patch_file" \
+                || log "WARNING: failed to apply $(basename "$patch_file")"
+        else
+            log "WARNING: $(basename "$patch_file") does not fit this tree; skipping"
+        fi
+    done
+}
+
 prepare_config() {
     local test_src="$BUILD_DIR/.tc-test.c"
     mkdir -p "$BUILD_DIR"
@@ -217,6 +243,8 @@ build_kernel() {
 
     mkdir -p "$OUT_DIR" "$BUILD_DIR"
     cd "$ROOT_DIR"
+
+    apply_root_patches
 
     if [[ ! -f "$OUT_DIR/.config" ]]; then
         log "Configuring with $DEFCONFIG ..."

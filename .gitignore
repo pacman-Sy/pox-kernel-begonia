@@ -35,6 +35,7 @@
 *.o.*
 *.order
 *.patch
+!ksu-patches/**/*.patch
 *.s
 *.so
 *.so.dbg
