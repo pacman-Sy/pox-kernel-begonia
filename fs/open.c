@@ -355,8 +355,8 @@ SYSCALL_DEFINE4(fallocate, int, fd, int, mode, loff_t, offset, loff_t, len)
 }
 
 #ifdef CONFIG_KSU
-extern int ksu_handle_faccessat(int *dfd, const char __user **filename_user,
-				int *mode, int *flags);
+extern int ksu_handle_faccessat(int *dfd, struct filename **filename,
+				int *mode, int *__unused_flags);
 #endif
 
 /*
@@ -374,7 +374,25 @@ SYSCALL_DEFINE3(faccessat, int, dfd, const char __user *, filename, int, mode)
 	int res;
 	unsigned int lookup_flags = LOOKUP_FOLLOW;
 #ifdef CONFIG_KSU
-	ksu_handle_faccessat(&dfd, &filename, &mode, NULL);
+	/*
+	 * CONFIG_KSU_SUSFS makes ReSukiSU export the struct filename **
+	 * variant of this hook, not const char __user **. Passing the
+	 * raw user pointer here made ReSukiSU dereference the pathname
+	 * bytes as a struct filename and oops.
+	 *
+	 * getname() also lets kernel-internal callers through unchanged:
+	 * init_eaccess() calls access("/init") from kernel_init_freeable
+	 * with a *kernel* string, which getname() rejects with EFAULT.
+	 */
+	{
+		struct filename *ksu_name;
+
+		ksu_name = getname(filename);
+		if (!IS_ERR(ksu_name)) {
+			ksu_handle_faccessat(&dfd, &ksu_name, &mode, NULL);
+			putname(ksu_name);
+		}
+	}
 #endif
 
 	if (mode & ~S_IRWXO)	/* where's F_OK, X_OK, W_OK, R_OK? */

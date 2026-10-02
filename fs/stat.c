@@ -365,7 +365,7 @@ SYSCALL_DEFINE2(newlstat, const char __user *, filename,
 }
 
 #ifdef CONFIG_KSU
-extern int ksu_handle_stat(int *dfd, const char __user **filename_user,
+extern int ksu_handle_stat(int *dfd, struct filename **filename,
 				int *flags);
 #endif
 
@@ -377,7 +377,12 @@ SYSCALL_DEFINE4(newfstatat, int, dfd, const char __user *, filename,
 	int error;
 
 #ifdef CONFIG_KSU
-	ksu_handle_stat(&dfd, &filename, &flag);
+	/* see fs/open.c: CONFIG_KSU_SUSFS exports the struct filename ** form */
+	struct filename *ksu_name = getname(filename);
+	if (!IS_ERR(ksu_name)) {
+		ksu_handle_stat(&dfd, &ksu_name, &flag);
+		putname(ksu_name);
+	}
 #endif
 	error = vfs_fstatat(dfd, filename, &stat, flag);
 
@@ -525,7 +530,12 @@ SYSCALL_DEFINE4(fstatat64, int, dfd, const char __user *, filename,
 	int error;
 
 #ifdef CONFIG_KSU // 32-bit su
-	ksu_handle_stat(&dfd, &filename, &flag); 
+	/* see fs/open.c: CONFIG_KSU_SUSFS exports the struct filename ** form */
+	struct filename *ksu_name = getname(filename);
+	if (!IS_ERR(ksu_name)) {
+		ksu_handle_stat(&dfd, &ksu_name, &flag);
+		putname(ksu_name);
+	}
 #endif
 	error = vfs_fstatat(dfd, filename, &stat, flag);
 	if (error)
