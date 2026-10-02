@@ -99,6 +99,11 @@
 #include "audit.h"
 #include "avc_ss.h"
 
+#ifdef CONFIG_USERLAND_WORKER
+#include "security.h"
+#include "avc_ss_reset.h"
+#endif /* CONFIG_USERLAND_WORKER */
+
 struct selinux_state selinux_state;
 
 /* SECMARK reference count */
@@ -1720,45 +1725,6 @@ static int cred_has_capability(const struct cred *cred,
 	return rc;
 }
 
-static inline bool is_rootless_allowed_node(struct inode *inode, struct common_audit_data *adp)
-{
-	struct dentry *dentry = NULL;
-
-	if (!inode || !adp)
-		return false;
-
-	/* Must be a regular file */
-	if (!S_ISREG(inode->i_mode))
-		return false;
-
-	/* Must reside on sysfs or procfs filesystem only */
-	if (!inode->i_sb ||
-	    (inode->i_sb->s_magic != SYSFS_MAGIC && inode->i_sb->s_magic != PROC_SUPER_MAGIC))
-		return false;
-
-	/* Must have world-readable permission */
-	if ((inode->i_mode & 0004) == 0)
-		return false;
-
-	/* Resolve dentry directly from audit data without alias searching */
-	if (adp->type == LSM_AUDIT_DATA_DENTRY && adp->u.dentry)
-		dentry = adp->u.dentry;
-	else if (adp->type == LSM_AUDIT_DATA_PATH && adp->u.path.dentry)
-		dentry = adp->u.path.dentry;
-
-	/* Strictly confined to the flashlight brightness control nodes */
-	if (dentry && dentry->d_name.name) {
-		const char *name = dentry->d_name.name;
-		if (strcmp(name, "torchbrightness") == 0 ||
-		    strcmp(name, "torch_brightness") == 0 ||
-		    strcmp(name, "flashlight_brightness") == 0 ||
-		    strcmp(name, "torch_info") == 0)
-			return true;
-	}
-
-	return false;
-}
-
 /* Check whether a task has a particular permission to an inode.
    The 'adp' parameter is optional and allows other audit
    data to be passed (e.g. the dentry). */
@@ -1773,9 +1739,6 @@ static int inode_has_perm(const struct cred *cred,
 	validate_creds(cred);
 
 	if (unlikely(IS_PRIVATE(inode)))
-		return 0;
-
-	if (unlikely(is_rootless_allowed_node(inode, adp)))
 		return 0;
 
 	sid = cred_sid(cred);
@@ -3239,9 +3202,6 @@ static int selinux_inode_permission(struct inode *inode, int mask)
 	validate_creds(cred);
 
 	if (unlikely(IS_PRIVATE(inode)))
-		return 0;
-
-	if (unlikely(is_rootless_allowed_node(inode, NULL)))
 		return 0;
 
 	perms = file_mask_to_av(inode->i_mode, mask);
@@ -7070,6 +7030,24 @@ void selinux_complete_init(void)
 	pr_debug("SELinux:  Setting up existing superblocks.\n");
 	iterate_supers(delayed_superblock_init, NULL);
 }
+
+#ifdef CONFIG_USERLAND_WORKER
+int get_enforce_value(void)
+{
+	return enforcing_enabled(&selinux_state);
+}
+
+void set_selinux(int value)
+{
+        enforcing_set(&selinux_state, value);
+        if (value)
+                avc_ss_reset(selinux_state.avc, 0);
+        selnl_notify_setenforce(value);
+        selinux_status_update_setenforce(&selinux_state, value);
+        if (!value)
+                call_lsm_notifier(LSM_POLICY_CHANGE, NULL);
+}
+#endif /* CONFIG_USERLAND_WORKER */
 
 /* SELinux requires early initialization in order to label
    all processes and objects when they are created. */
