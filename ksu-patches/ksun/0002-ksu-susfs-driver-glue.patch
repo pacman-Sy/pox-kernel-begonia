@@ -18,10 +18,10 @@ index baa32a37c..27c6cbe82 100644
 +
  # Keep a new line here!! Because someone may append config
 diff --git a/kernel/Kconfig b/kernel/Kconfig
-index 946966dc3..f8965a8d9 100644
+index 946966dc3..e4b96f0de 100644
 --- a/kernel/Kconfig
 +++ b/kernel/Kconfig
-@@ -73,3 +73,96 @@ config KSU_SYSCALL_TABLE_HOOK
+@@ -73,3 +73,88 @@ config KSU_SYSCALL_TABLE_HOOK
  endchoice
  
  endmenu
@@ -59,14 +59,6 @@ index 946966dc3..f8965a8d9 100644
 +    default y
 +    help
 +        - Allow spoofing the kstat of user-defined file/directory.
-+
-+config KSU_SUSFS_TRY_UMOUNT
-+    bool "Enable to use ksu's try_umount"
-+    depends on KSU_SUSFS
-+    default y
-+    help
-+        - Allow using try_umount to umount other user-defined mount paths
-+          prior to ksu's default umount paths.
 +
 +config KSU_SUSFS_SPOOF_UNAME
 +    bool "Enable to spoof uname"
@@ -144,7 +136,7 @@ index 2359678b5..57652599f 100644
  
  	if (ksu_late_loaded) {
 diff --git a/kernel/supercall/supercall.c b/kernel/supercall/supercall.c
-index 1bfa99521..09b43244c 100644
+index 1bfa99521..471ffa20b 100644
 --- a/kernel/supercall/supercall.c
 +++ b/kernel/supercall/supercall.c
 @@ -19,6 +19,10 @@
@@ -158,7 +150,7 @@ index 1bfa99521..09b43244c 100644
  
  #include "sulog/event.h"
  
-@@ -131,6 +135,97 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd,
+@@ -131,6 +135,91 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd,
  		magic2);
  #endif
  
@@ -192,12 +184,6 @@ index 1bfa99521..09b43244c 100644
 +		}
 +		if (cmd == CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY) {
 +			susfs_add_sus_kstat(arg);
-+			return 0;
-+		}
-+#endif
-+#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
-+		if (cmd == CMD_SUSFS_ADD_TRY_UMOUNT) {
-+			susfs_add_try_umount(arg);
 +			return 0;
 +		}
 +#endif
