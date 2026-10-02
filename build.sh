@@ -19,7 +19,9 @@ KERNEL_VERSION="${KERNEL_VERSION:-0.9}"
 DEVICE_NAME="${DEVICE_NAME:-Redmi Note 8 Pro}"
 DEVICE_CODENAME="${DEVICE_CODENAME:-begonia}"
 MAINTAINER="${MAINTAINER:-TXO R (Pox Project)}"
-DEFCONFIG="${DEFCONFIG:-begonia_apatch_defconfig}"
+# Left empty here; resolved after GIT_BRANCH is known so that each branch can
+# ship its own arch/arm64/configs/<branch>_defconfig. See below.
+DEFCONFIG="${DEFCONFIG:-}"
 
 # Determine safe parallel jobs based on available RAM and load to protect host PC from freezing
 auto_jobs() {
@@ -55,6 +57,14 @@ if [[ -z "${VERSION_NAME:-}" ]]; then
             VERSION_NAME="Obsidian"
             BRANCH_DESC="iOS-Style Compressed Memory Edition"
             ;;
+        resukisu)
+            VERSION_NAME="ReSukiSU"
+            BRANCH_DESC="ReSukiSU Root Edition"
+            ;;
+        ksun)
+            VERSION_NAME="KSUN"
+            BRANCH_DESC="KernelSU-Next Root Edition"
+            ;;
         gaming|onyx|*)
             VERSION_NAME="Onyx"
             BRANCH_DESC="Zero Frame-Drop Gaming Edition"
@@ -64,6 +74,15 @@ else
     BRANCH_DESC="${BRANCH_DESC:-Custom Edition}"
 fi
 BRANCH_CODENAME="$VERSION_NAME"
+
+# Per-branch defconfig: prefer arch/arm64/configs/<branch>_defconfig when present.
+if [[ -z "$DEFCONFIG" ]]; then
+    if [[ -f "$ROOT_DIR/arch/arm64/configs/${GIT_BRANCH}_defconfig" ]]; then
+        DEFCONFIG="${GIT_BRANCH}_defconfig"
+    else
+        DEFCONFIG="begonia_apatch_defconfig"
+    fi
+fi
 
 # Derive dynamic localversion string: contains name, version, version name, branch, commit id
 if [[ -n "${LOCALVERSION:-}" ]]; then
