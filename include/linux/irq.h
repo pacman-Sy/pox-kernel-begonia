@@ -233,6 +233,8 @@ enum {
 	IRQD_MANAGED_SHUTDOWN		= (1 << 23),
 	IRQD_SINGLE_TARGET		= (1 << 24),
 	IRQD_DEFAULT_TRIGGER_SET	= (1 << 25),
+	IRQD_PERF_CRITICAL		= (1 << 26),
+	IRQD_AFFINITY_ON_ACTIVATE	= (1 << 29),
 };
 
 #define __irqd_to_state(d) ACCESS_PRIVATE((d)->common, state_use_accessors)
@@ -375,6 +377,16 @@ static inline bool irqd_is_started(struct irq_data *d)
 static inline bool irqd_is_managed_and_shutdown(struct irq_data *d)
 {
 	return __irqd_to_state(d) & IRQD_MANAGED_SHUTDOWN;
+}
+
+static inline void irqd_set_affinity_on_activate(struct irq_data *d)
+{
+	__irqd_to_state(d) |= IRQD_AFFINITY_ON_ACTIVATE;
+}
+
+static inline bool irqd_affinity_on_activate(struct irq_data *d)
+{
+	return __irqd_to_state(d) & IRQD_AFFINITY_ON_ACTIVATE;
 }
 
 #undef __irqd_to_state
