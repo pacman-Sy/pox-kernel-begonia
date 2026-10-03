@@ -800,6 +800,12 @@ noinline int slow_avc_audit(struct selinux_state *state,
 	struct common_audit_data stack_data;
 	struct selinux_audit_data sad;
 
+#ifdef CONFIG_KSU_SUSFS
+	if (static_branch_unlikely(&susfs_is_avc_log_spoofing_enabled)) {
+		return 0;
+	}
+#endif
+
 	if (!a) {
 		a = &stack_data;
 		a->type = LSM_AUDIT_DATA_NONE;
