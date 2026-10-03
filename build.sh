@@ -112,14 +112,16 @@ source "$KERDEVDEP/env.sh"
 ARCH=arm64
 CC=clang
 CLANG_TRIPLE=aarch64-linux-gnu-
-CROSS_COMPILE="$KERDEVDEP/clang/bin/llvm-"
-AS="$KERDEVDEP/clang/bin/llvm-as"
+CROSS_COMPILE=aarch64-linux-android-
+AS="$KERDEVDEP/gcc/bin/aarch64-linux-android-as"
 LD="$KERDEVDEP/clang/bin/ld.lld"
 AR="$KERDEVDEP/clang/bin/llvm-ar"
 NM="$KERDEVDEP/clang/bin/llvm-nm"
 OBJCOPY="$KERDEVDEP/clang/bin/llvm-objcopy"
 OBJDUMP="$KERDEVDEP/clang/bin/llvm-objdump"
 STRIP="$KERDEVDEP/clang/bin/llvm-strip"
+# -B tells Clang's -no-integrated-as mode where to find the GNU AArch64 "as".
+export KERNEL_GNU_AS_DIR="$KERDEVDEP/kernel-bin"
 EXTRA_FLAGS="${EXTRA_FLAGS:-} AS=$AS LD=$LD AR=$AR NM=$NM OBJCOPY=$OBJCOPY OBJDUMP=$OBJDUMP STRIP=$STRIP"
 AK3_DIR="$KERDEVDEP/anykernel"
 

@@ -50,9 +50,9 @@ jobs:
             kerdevdep/clang
             kerdevdep/gcc
             kerdevdep/anykernel
-          key: kerdevdep-toolchains-v2
+          key: kerdevdep-toolchains-v3
           restore-keys: |
-            kerdevdep-toolchains-v2
+            kerdevdep-toolchains-v3
             kerdevdep-toolchains-
 
       - name: Build Pox Kernel & Flashable Zip

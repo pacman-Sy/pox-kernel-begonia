@@ -370,7 +370,7 @@ HOSTLDFLAGS  := $(HOST_LFS_LDFLAGS)
 HOST_LOADLIBES := $(HOST_LFS_LIBS)
 
 # Make variables (CC, etc...)
-AS		= $(CURDIR)/kerdevdep/clang/bin/llvm-as
+AS		= $(CROSS_COMPILE)as
 LD		= $(CURDIR)/kerdevdep/clang/bin/ld.lld
 LDGOLD		= $(CURDIR)/kerdevdep/clang/bin/ld.lld
 CC		= clang
@@ -494,7 +494,9 @@ ifneq ($(GCC_TOOLCHAIN),)
 CLANG_FLAGS	+= --gcc-toolchain=$(GCC_TOOLCHAIN)
 endif
 CLANG_FLAGS	+= -no-integrated-as
-CLANG_FLAGS	+= -B$(CURDIR)/kerdevdep/clang/bin
+KERNEL_GNU_AS_DIR ?= $(CURDIR)/kerdevdep/kernel-bin
+CLANG_FLAGS	+= -B$(KERNEL_GNU_AS_DIR)
+export KERNEL_GNU_AS_DIR
 CLANG_FLAGS	+= -Werror=unknown-warning-option
 KBUILD_CFLAGS	+= $(CLANG_FLAGS)
 KBUILD_AFLAGS	+= $(CLANG_FLAGS)

@@ -159,8 +159,18 @@ fi
 WRAPPERS
 chmod +x bin/ccache
 
-# Clang's -no-integrated-as mode looks for an executable named "as".
-ln -sf llvm-as "$SCRIPT_DIR/clang/bin/as"
+# Clang's -no-integrated-as mode invokes an external GNU assembler named
+# "as". Point it at the AArch64 binutils from the bundled GCC toolchain, and
+# keep it OUT of PATH so the host compiler keeps using the system x86_64 as.
+rm -f "$SCRIPT_DIR/clang/bin/as"
+mkdir -p "$SCRIPT_DIR/kernel-bin"
+GNU_AS="$SCRIPT_DIR/gcc/bin/aarch64-linux-android-as"
+if [[ -x "$GNU_AS" ]]; then
+    ln -sf "$GNU_AS" "$SCRIPT_DIR/kernel-bin/as"
+else
+    err "Missing GNU assembler: $GNU_AS"
+    exit 1
+fi
 
 # Symlink clang binaries
 for f in clang/bin/*; do
