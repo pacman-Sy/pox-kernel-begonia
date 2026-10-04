@@ -136,7 +136,7 @@ jobs:
 
           ### ReSukiSU Manager
           Install the matching manager before flashing this kernel:
-          `ReSukiSU_v4.2.0-rc3_35193-arm64-v8a-release.apk`
+          `ReSukiSU_v4.2.0-rc3_35171-arm64-v8a-release.apk`
           EOF
               ;;
             ksun)
