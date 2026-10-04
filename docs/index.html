@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pox Kernel — Downloads</title>
+<meta name="description" content="Download flashable Pox Kernel releases for the Redmi Note 8 Pro (begonia).">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9881;</text></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap topbar-in">
+    <a class="brand" href="./">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-text">
+        <strong>Pox Kernel</strong>
+        <small>Redmi Note 8 Pro &middot; begonia &middot; MT6785</small>
+      </span>
+    </a>
+    <button id="themeBtn" class="ghost-btn" type="button" aria-label="Toggle colour theme">
+      <span data-theme-icon>&#9789;</span>
+    </button>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="hero">
+    <h1>Flashable releases</h1>
+    <p class="sub">
+      Every published build of the Pox Kernel, ready to flash.
+      Pick an edition, download the ZIP, flash in TWRP / OrangeFox, reboot.
+    </p>
+    <dl class="specs">
+      <div><dt>SoC</dt><dd>MediaTek MT6785 (Helio G90T)</dd></div>
+      <div><dt>Kernel</dt><dd>Linux 4.14.357</dd></div>
+      <div><dt>Toolchain</dt><dd>Android Clang 11.0.1 + GCC 9.3</dd></div>
+      <div><dt>Device</dt><dd>begonia / begonia_in (A-only)</dd></div>
+    </dl>
+  </section>
+
+  <section class="notice" role="note">
+    <strong>Before you flash.</strong> Back up with a NANDroid. This is an
+    <em>A-only</em> device (single <code>boot</code> partition, no A/B slots).
+    Do not flash a ZIP built for a different device.
+  </section>
+
+  <section class="toolbar" aria-label="Filter releases">
+    <div class="search-wrap">
+      <input id="search" type="search" placeholder="Search edition, tag or commit&hellip;"
+             autocomplete="off" spellcheck="false" aria-label="Search releases">
+    </div>
+    <div class="chips" id="branchChips" role="group" aria-label="Filter by branch"></div>
+    <div class="toolbar-right">
+      <label class="switch">
+        <input type="checkbox" id="hidePre">
+        <span>Hide pre-releases</span>
+      </label>
+      <button id="refreshBtn" class="ghost-btn" type="button">Refresh</button>
+    </div>
+  </section>
+
+  <p id="status" class="status" role="status">Loading releases&hellip;</p>
+
+  <div id="grid" class="grid" aria-live="polite"></div>
+
+  <p id="empty" class="empty" hidden>No releases match that filter.</p>
+
+</main>
+
+<footer class="wrap foot">
+  <p>
+    Built from the <code>pacman-Sy/pox-kernel-begonia</code> repository.
+    Releases are produced automatically by GitHub Actions on every push.
+  </p>
+  <p class="muted">
+    Data loaded live from the GitHub Releases API. Not affiliated with Xiaomi or MediaTek.
+  </p>
+</footer>
+
+<template id="cardTpl">
+  <article class="card">
+    <header class="card-head">
+      <div class="card-title">
+        <span class="badge edition"></span>
+        <h3 class="tag"></h3>
+      </div>
+      <div class="card-flags"></div>
+    </header>
+    <p class="meta"><span class="sha"></span><span class="when"></span></p>
+    <ul class="assets"></ul>
+    <footer class="card-foot">
+      <a class="btn primary download-zip" download>Download flashable ZIP</a>
+      <a class="btn ghost release-link" target="_blank" rel="noopener">Release notes</a>
+    </footer>
+  </article>
+</template>
+
+<script src="assets/app.js"></script>
+</body>
+</html>
