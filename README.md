@@ -116,12 +116,11 @@ the `CMD_SUSFS_*` command channel is answered in `kernel/reboot.c`, and the
 per-process "no su" flags are maintained from `commit_creds()`.  The stock
 susfs4ksu `ksu_susfs` tool works unmodified.
 
-What it hides, for ordinary apps only (su shells, `adb` and system services keep
-seeing everything):
+What it hides:
 
-* root's paths, from `stat()`, `open()` and directory listings
-* root's mounts, from `/proc/<pid>/{mounts,mountinfo,stat,statfs}`
-* mmapped root files, from `/proc/<pid>/{maps,smaps,map_files}`
+* root's paths, from `stat()`, `open()` and directory listings (ordinary apps)
+* root's mounts, from `/proc/<pid>/{mounts,mountinfo,stat,statfs}` (every process)
+* mmapped root files, from `/proc/<pid>/{maps,smaps,map_files}` (ordinary apps)
 * the inode number / size / timestamps of files an APM module replaced
 * optionally `uname()` and `/proc/cmdline`
 

@@ -72,14 +72,20 @@ mounts and no mount is hidden.  `dmesg` then contains
 * **Which mounts are hidden.**  `fs/namespace.c` (SUSFS) gives every mount that
   is created from the APatch root context an `mnt_id` from the `2000000000`
   range, and `fs/proc_namespace.c` skips those ids when it prints
-  `/proc/<pid>/{mounts,mountinfo,stat,statfs}` for processes that are not
-  allowed to use su.  No userspace configuration is needed: everything `apd`
-  mounts is hidden from apps automatically.
-* **Which processes are "no su".**  `susfs_apatch_update_proc_flags()` runs from
-  `commit_creds()`, so zygote dropping a child to its app uid, an app calling
-  `setuid()`, and APatch's `commit_su()` granting root are all covered - in both
-  directions, so a su shell sees everything again.  su shells, `adb` and system
-  services keep seeing root's mounts on purpose.
+  `/proc/<pid>/{mounts,mountinfo,stat,statfs}`.  No userspace configuration is
+  needed: everything `apd` mounts disappears from those files automatically.
+  Note that in this v2.3.0 port that filter is **unconditional** - it tests the
+  mount id only, with no per-process check - so those entries are absent for
+  every process, su shells included.  (It also makes
+  `hide_sus_mnts_for_non_su_procs` a no-op here: `fs/susfs.c` records the
+  toggle and never consults it.)
+* **Which processes are "no su".**  This governs the *file* hiding - `sus_path`,
+  `sus_kstat`, `open_redirect`, `sus_map` - and it runs from `commit_creds()`,
+  so zygote dropping a child to its app uid, an app calling `setuid()`, and
+  APatch's `commit_su()` granting root are all covered, in both directions.  uid
+  0 therefore still sees `/data/adb/modules`, an ordinary app does not.  `adb`
+  and system services (uid < 10000) also see it, which is intentional:
+  breaking them would break the system.
 * **Command channel.**  `ksu_susfs` calls
   `reboot(0xDEADBEEF, 0xFAFAFAFA, CMD_SUSFS_*, &info)` as root; the magic pair is
   answered at the very top of `SYSCALL_DEFINE4(reboot)` and never reaches the
@@ -197,13 +203,13 @@ cd susfs4ksu && ./build_ksu_susfs_tool.sh      # needs the Android NDK
 ksu_susfs show version
 ksu_susfs show enabled_features
 
-# from a normal (non root) app, or from adb after hiding was configured
-cat /proc/mounts | grep modules      # root's module mounts must be gone
-ls /data/adb                         # must not exist
-stat /data/adb/modules/foo           # ENOENT
+# mounts: root's module mounts are gone from these files, for everyone
+cat /proc/self/mounts | grep -c /data/adb
 
-# from a su shell everything must still be visible
-ls /data/adb && cat /proc/mounts | grep modules
+# paths: visible as root, invisible from an app uid
+ksu_susfs add_sus_path /data/adb/modules
+ls /data/adb/modules                 # root: still there
+su 10001 -c 'ls /data/adb/modules'   # app uid: No such file or directory
 ```
 
 ## Files
