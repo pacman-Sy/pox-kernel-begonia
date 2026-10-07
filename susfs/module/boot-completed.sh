@@ -1,11 +1,12 @@
 #!/system/bin/sh
 # boot-completed: last pass, everything the system is done setting up.
 
-MODDIR=${MODDIR:-/data/adb/modules/susfs_apatch}
+MODDIR=${MODDIR:-$(dirname "$0")}
+[ -d "${MODDIR}" ] || MODDIR=/data/adb/modules/susfs_apatch
 
 . "${MODDIR}/utils.sh"
 
-find_susfs_bin || exit 0
+require_susfs
 
 # uname spoof: conf/uname.txt holds "<release>|<version>".
 UNAME_LINE=$(read_conf uname.txt | head -n1)

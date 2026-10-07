@@ -2,11 +2,12 @@
 # service stage: the module mounts exist by now, so the stat of the mounted
 # files can be cloned, maps can be hidden and the command line can be spoofed.
 
-MODDIR=${MODDIR:-/data/adb/modules/susfs_apatch}
+MODDIR=${MODDIR:-$(dirname "$0")}
+[ -d "${MODDIR}" ] || MODDIR=/data/adb/modules/susfs_apatch
 
 . "${MODDIR}/utils.sh"
 
-find_susfs_bin || exit 0
+require_susfs
 
 # sus_kstat: make the mounted file look like the file it replaced.
 # Format: <target> <ino|default> <dev|default> <nlink|default> <size|default>

@@ -97,6 +97,46 @@ conf/enable_log.txt      1 = verbose SUSFS logging in dmesg
 `customize.sh` downloads the stock `ksu_susfs` arm64 binary on install (URL in
 `ksu_susfs.url`); drop your own build into `susfs/module/tools/` to override it.
 
+### Where the output goes
+
+APatch runs a module script as `busybox sh <script>` with its cwd set to the
+module directory, exports only `AP_MODULE`/`APATCH`/`PATH` (**no `MODDIR`**), and
+shows nothing from the Action button in the UI.  Every message the module emits
+therefore goes to three places:
+
+* `stdout` -> apd's logcat (`logcat | grep susfs`)
+* `/data/adb/modules/susfs_apatch/susfs.log` (capped at 64 KiB)
+* `/dev/kmsg`, so `dmesg | grep susfs` works too
+
+### Troubleshooting "the Action button does nothing"
+
+`action.sh` prints the whole state; read it from the log file:
+
+```sh
+su -c 'cat /data/adb/modules/susfs_apatch/susfs.log'
+su -c 'logcat -d | grep susfs'
+```
+
+The three states it can end in:
+
+| log says | meaning | fix |
+| --- | --- | --- |
+| `tool=MISSING` | `ksu_susfs` was not downloaded | put the arm64 binary in `/data/adb/modules/susfs_apatch/tools/ksu_susfs`, `chmod 755`, tap Action again |
+| `kernel susfs=NONE` | the tool runs but the kernel does not answer the magic | flash the kernel built from this branch (`ksu_susfs show version` must print `v2.3.0`) |
+| `ERROR: cannot apply` | one of the two above | as above |
+
+If the state looks fine but nothing changes, make sure the paths are actually
+listed in `conf/` - an empty config is a successful run that does nothing.
+Set `conf/enable_log.txt` to `1` for kernel-side logging (then `dmesg | grep
+susfs` shows every command), and note that the changes only affect **ordinary
+apps**: from a su shell everything stays visible by design, so test with
+`adb shell` after `pm` ... as an app, e.g.:
+
+```sh
+su -c '/data/adb/modules/susfs_apatch/tools/ksu_susfs add_sus_path /data/adb'
+# then, as a normal app: stat /data/adb  ->  ENOENT
+```
+
 Build the tool from source if you prefer:
 
 ```sh
