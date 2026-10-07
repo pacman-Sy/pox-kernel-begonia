@@ -1,0 +1,8 @@
+
+config MTK_ALSPSHUB
+	tristate "alspshub for MediaTek package"
+	help
+	  It support different alspshub sensor.
+	  If this option is set,
+	  it will support
+	  sensorhub gyroscope.

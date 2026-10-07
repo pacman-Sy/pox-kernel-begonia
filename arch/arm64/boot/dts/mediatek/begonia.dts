@@ -1,0 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+#include "mt6785.dts"
+#include "mediatek/begonia-common.dtsi"
+#include "mediatek/begonia/cust.dtsi"
+
+/ {
+	model = "BEGONIA";
+	compatible = "mediatek,MT6785";
+};

@@ -1,0 +1,79 @@
+name: Begonia 5.10 Kernel Build
+
+on:
+  push:
+    branches: ['5.1']
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build ${{ matrix.device }}
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - device: begonia
+            defconfig: begonia_defconfig
+            model: 'Pox-Begonia'
+          - device: begoniain
+            defconfig: begoniain_defconfig
+            model: 'Pox-Begonia-in'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bc bison build-essential curl flex git libelf-dev libssl-dev \
+            make zip unzip python3 python-is-python3 gcc-aarch64-linux-gnu \
+            clang-14 lld-14 llvm-14 lz4 zstd lzop cpio device-tree-compiler
+          echo "/usr/lib/llvm-14/bin" >> "$GITHUB_PATH"
+          clang --version | head -1
+          /usr/lib/llvm-14/bin/llvm-objcopy --version | head -1
+
+      - name: Configure kernel
+        run: |
+          mkdir -p out
+          make O=out ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- ${{ matrix.defconfig }} olddefconfig
+
+      - name: Build kernel
+        run: |
+          make O=out ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc)
+          ls -lh out/arch/arm64/boot/Image.gz-dtb
+
+      - name: Package AnyKernel3 zip
+        run: |
+          set -euo pipefail
+          SHA_SHORT="${GITHUB_SHA:0:7}"
+          KREL="$(cat out/include/config/kernel.release)"
+          KSTRING="${{ matrix.model }}-5.10-${SHA_SHORT}-${KREL}"
+          ZNAME="${{ matrix.model }}-5.10-${{ matrix.device }}.zip"
+
+          git clone --depth 1 https://github.com/osm0sis/AnyKernel3.git anykernel
+          rm -rf anykernel/.git anykernel/.github anykernel/zanykernel
+          cp out/arch/arm64/boot/Image.gz-dtb anykernel/
+
+          cd anykernel
+          sed -i "s|^kernel.string=.*|kernel.string=${KSTRING}|" anykernel.sh
+          grep -E '^kernel\.string=' anykernel.sh
+          grep -q 'Image.gz-dtb' tools/ak3-core.sh
+          zip -r9 "../${ZNAME}" \
+            anykernel.sh updater-script META-INF tools Image.gz-dtb \
+            -x '*.git*'
+          cd ..
+          ls -lh "${ZNAME}"
+
+      - name: Upload Image and AnyKernel zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.model }}-5.10-${{ matrix.device }}
+          path: |
+            out/arch/arm64/boot/Image.gz-dtb
+            ${{ matrix.model }}-5.10-${{ matrix.device }}.zip
+          if-no-files-found: error
