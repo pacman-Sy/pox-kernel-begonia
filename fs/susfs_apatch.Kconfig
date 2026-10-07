@@ -1,0 +1,137 @@
+#
+# SUSFS (susfs4ksu) configuration for APatch
+#
+# The feature symbols keep their upstream CONFIG_KSU_SUSFS_* names on purpose:
+# fs/susfs.c and the kernel hunks come from susfs4ksu verbatim, so keeping the
+# names means upstream SUSFS updates apply without a rename pass.  They are
+# provided here (APatch has no KernelSU Kconfig menu to borrow them from) and
+# are implemented by fs/susfs_apatch.c instead of the KernelSU driver.
+#
+
+config KSU_SUSFS
+	bool "Enable SUSFS (susfs4ksu) for APatch"
+	depends on THREAD_INFO_IN_TASK
+	depends on SECURITY_SELINUX
+	default y
+	help
+	  Kernel level root hiding from https://gitlab.com/simonpunk/susfs4ksu.
+
+	  Requires the kernel side SUSFS implementation (fs/susfs.c plus
+	  include/linux/susfs.h and include/linux/susfs_def.h) and the APatch
+	  glue in fs/susfs_apatch.c, which provides the reboot(2) command
+	  channel, the SELinux domain detection and the per-process flags that
+	  susfs4ksu normally gets from the KernelSU driver.
+
+	  The userspace control tool is the stock susfs4ksu "ksu_susfs" binary;
+	  no APatch-specific fork of it is needed because the command channel
+	  is identical.
+
+config KSU_SUSFS_SUS_PATH
+	bool "Enable to hide suspicious paths"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Hide user defined paths (and everything below them) from the file
+	  related system calls and from directory listings.
+
+config KSU_SUSFS_SUS_MOUNT
+	bool "Enable to hide suspicious mounts"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Hide the mounts that were created by the root process (APatch's apd
+	  and its su shells) from /proc/[pid]/{mounts,mountinfo,stat,statfs} for
+	  processes that are not allowed to use su.
+
+	  Mounts are recognised by the mnt_id range that fs/namespace.c assigns
+	  to mounts created from the APatch root context, so no userspace
+	  configuration is required.
+
+config KSU_SUSFS_SUS_KSTAT
+	bool "Enable to spoof suspicious kstat"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Spoof the stat()/statx()/fstatat() result of user defined files so
+	  that their inode number, size, timestamps, ... look like the file that
+	  replaces them.
+
+config KSU_SUSFS_SPOOF_UNAME
+	bool "Enable to spoof uname"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Spoof the release/version strings returned by uname(2).
+
+config KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
+	bool "Enable to spoof /proc/cmdline"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Replace the kernel command line reported through /proc/cmdline.
+
+config KSU_SUSFS_OPEN_REDIRECT
+	bool "Enable to redirect a path to be opened with another path"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Redirect opens of a user defined path to another path, using one of
+	  the uid schemes understood by susfs4ksu.
+
+config KSU_SUSFS_SUS_MAP
+	bool "Enable to hide mmapped files from proc maps interfaces"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Hide mmapped files from /proc/<pid>/{maps,smaps,map_files} and the
+	  file descriptor links under /proc/<pid>/fd.
+
+config KSU_SUSFS_ENABLE_LOG
+	bool "Enable susfs logging"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Allow the userspace tool to switch susfs logging on and off at
+	  runtime.  Logging is off by default.
+
+config KSU_SUSFS_ENABLE_AVC_LOG_SPOOFING
+	bool "Enable avc (SELinux denied) log spoofing"
+	depends on KSU_SUSFS
+	default n
+	help
+	  Drop the avc "denied" audit records that susfs itself provokes while
+	  hiding things.  This hides *all* denied records, which also hides real
+	  policy violations, so it is off by default.
+
+config SUSFS_APATCH_SU_DOMAINS
+	string "SELinux contexts of the APatch root process"
+	depends on KSU_SUSFS
+	default "u:r:magisk:s0 u:r:su:s0"
+	help
+	  Space separated list of SELinux contexts that identify the APatch
+	  root side: the su shell and apd (which performs the module mounts).
+	  KernelPatch enters them with "su -Z <context>", see
+	  MAGISK_SCTX in kernel/patch/android/userd.c.
+
+	  If the context was changed inside APatch, list the new one here,
+	  otherwise SUSFS cannot tell root mounts from system mounts.
+
+config SUSFS_APATCH_ZYGOTE_DOMAIN
+	string "SELinux context of the Android zygote"
+	depends on KSU_SUSFS
+	default "u:r:zygote:s0"
+	help
+	  Used to hand out believable mount ids to processes that zygote
+	  spawned, so that the hidden mounts do not leave a hole in the mount id
+	  numbering of an app's mount namespace.
+
+config SUSFS_APATCH_HIDE_UID_MIN
+	int "Lowest app uid treated as a normal app"
+	depends on KSU_SUSFS
+	default 10000
+	help
+	  Processes whose uid is at least this value (modulo the per user
+	  range) are treated as ordinary apps: they get the susfs
+	  "no su"/"umounted" flags, which gate sus_map, open_redirect,
+	  sus_kstat and the mount hiding.  Everything else keeps seeing root's
+	  mounts, which keeps su shells, adb and system services working.
