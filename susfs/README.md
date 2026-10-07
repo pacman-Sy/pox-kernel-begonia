@@ -196,6 +196,23 @@ cd susfs4ksu && ./build_ksu_susfs_tool.sh      # needs the Android NDK
   root context, so `fs/namespace.c` gives *every* mount it creates an `mnt_id`
   from the sus range and they are all hidden from apps.
 
+## Verified on device
+
+Checked on the released kernel (`Pox-0.9-SUSFS-APatch`) with the bundled
+`ksu_susfs` from `gki-android15-6.6`:
+
+```
+ksu_susfs show version          -> v2.3.0
+ksu_susfs show enabled_features -> the eight CONFIG_KSU_SUSFS_* options below
+cat /proc/self/mounts | grep -c /data/adb            -> 0
+su 10001 -c cat /data/local/tmp/susfs_probe           -> No such file or directory
+cat /data/local/tmp/susfs_probe                       -> probe   (as root)
+```
+
+So the glue's `reboot(2)` channel answers, sus mounts are gone from
+`/proc/*/mount*`, and `sus_path` hides the marked inode from an app uid while
+uid 0 is untouched.
+
 ## Verifying on device
 
 ```sh
