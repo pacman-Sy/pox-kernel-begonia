@@ -83,6 +83,10 @@ jobs:
               EDITION="Obsidian"
               EDITION_DESC="iOS-Style Compressed Memory Edition"
               ;;
+            susfs-apatch)
+              EDITION="SUSFS-APatch"
+              EDITION_DESC="APatch Edition with SUSFS Kernel Root Hiding"
+              ;;
             onyx|*)
               EDITION="Onyx"
               EDITION_DESC="Zero Frame-Drop Gaming Edition"
@@ -90,6 +94,17 @@ jobs:
           esac
 
           COMMIT_SHORT="$(git rev-parse --short HEAD 2>/dev/null || echo "${{ github.sha }}" | cut -c1-8)"
+
+          MODULE_PATH=""
+          if [ -f susfs/module/module.prop ]; then
+            MODULE_PATH="build/susfs_apatch-module.zip"
+            chmod 0755 susfs/module/*.sh 2>/dev/null || true
+            ( cd susfs/module && zip -r9 "../../${MODULE_PATH}" . ) \
+              || echo "::warning::failed to package the susfs module"
+            echo "PACKAGED_MODULE=1" >> $GITHUB_ENV
+          else
+            echo "PACKAGED_MODULE=0" >> $GITHUB_ENV
+          fi
           TAG_NAME="Pox-0.9-${EDITION}-${BRANCH_NAME}-${COMMIT_SHORT}"
           RELEASE_TITLE="Pox Kernel 0.9 [${EDITION}] - ${BRANCH_NAME} (${COMMIT_SHORT})"
 
@@ -122,6 +137,7 @@ jobs:
           ### Release Assets
           - **Flashable Recovery ZIP**: \`${{ env.ZIP_NAME }}\` (Install via TWRP / OrangeFox)
           - **Kernel Binary**: \`Image.gz-dtb\`
+          - **SUSFS Module (APatch)**: \`susfs_apatch-module.zip\` (only on SUSFS builds - install in the APatch manager, edit \`conf/\` and reboot)
 
           ### Flashing Guide
           1. Reboot to Custom Recovery (TWRP, OrangeFox, PBRP).
@@ -139,12 +155,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          ASSETS=("${{ env.ZIP_PATH }}" "build/Image.gz-dtb")
+          if [ "${{ env.PACKAGED_MODULE }}" = "1" ] && [ -f build/susfs_apatch-module.zip ]; then
+            ASSETS+=("build/susfs_apatch-module.zip")
+          fi
           gh release create "${{ env.TAG_NAME }}" \
             --target "${{ github.sha }}" \
             --title "${{ env.RELEASE_TITLE }}" \
             --notes-file release_notes.md \
-            "${{ env.ZIP_PATH }}" \
-            "build/Image.gz-dtb" || \
+            "${ASSETS[@]}" || \
           gh release upload "${{ env.TAG_NAME }}" \
-            "${{ env.ZIP_PATH }}" \
-            "build/Image.gz-dtb" --clobber
+            "${ASSETS[@]}" --clobber
