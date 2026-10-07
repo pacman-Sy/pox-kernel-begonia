@@ -63,12 +63,21 @@ require_susfs() {
 	if ! find_susfs_bin; then
 		susfs_die "ksu_susfs not found. Install it as ${MODDIR}/tools/ksu_susfs"
 	fi
-	# A real kernel-side SUSFS answers 'show version'; without it every
-	# command returns EINVAL, which is the usual "nothing happens".
-	if ! SUSFS_VERSION="$("${SUSFS_BIN}" show version 2>/dev/null)" || [ -z "${SUSFS_VERSION}" ]; then
-		susfs_die "this kernel has no SUSFS (or the tool cannot reach it) - flash the susfs-apatch kernel"
-	fi
-	[ -z "${SUSFS_FEATURES}" ] && SUSFS_FEATURES="$("${SUSFS_BIN}" show enabled_features 2>/dev/null | tr '\n' ' ')"
+	# Only the v2 tool speaks the protocol this kernel implements; the
+	# upstream master branch tool is frozen at 1.3.8 and answers 'show' with
+	# its usage text.  Accept output that actually looks like a version.
+	SUSFS_VERSION="$("${SUSFS_BIN}" show version 2>/dev/null | head -n1)"
+	case "${SUSFS_VERSION}" in
+		v[0-9]*)
+			SUSFS_FEATURES="$("${SUSFS_BIN}" show enabled_features 2>/dev/null | tr '\n' ' ')"
+			;;
+		"")
+			susfs_die "this kernel has no SUSFS (or the tool cannot reach it) - flash the susfs-apatch kernel"
+			;;
+		*)
+			susfs_die "wrong tool: '${SUSFS_BIN}' is the susfs 1.3.8 build and cannot drive a v2 kernel - replace it with ${MODDIR}/tools/ksu_susfs from the release zip (or re-run customize.sh)"
+			;;
+	esac
 }
 
 ## Print the full state; this is what the Action button is for.
@@ -77,13 +86,15 @@ susfs_diagnose() {
 	susfs_log "uid=$(id -u) module=${MODDIR}"
 	if find_susfs_bin; then
 		susfs_log "tool=${SUSFS_BIN}"
-		V="$("${SUSFS_BIN}" show version 2>/dev/null)"
-		if [ -n "${V}" ]; then
-			susfs_log "kernel susfs=${V}"
-			susfs_log "features=$("${SUSFS_BIN}" show enabled_features 2>/dev/null | tr '\n' ' ')"
-		else
-			susfs_log "kernel susfs=NONE (reboot with magic reached no SUSFS handler)"
-		fi
+		V="$("${SUSFS_BIN}" show version 2>/dev/null | head -n1)"
+		case "${V}" in
+			v[0-9]*)
+				susfs_log "kernel susfs=${V}"
+				susfs_log "features=$("${SUSFS_BIN}" show enabled_features 2>/dev/null | tr '\n' ' ')"
+				;;
+			"") susfs_log "kernel susfs=NONE (reboot with magic reached no SUSFS handler)" ;;
+			*)  susfs_log "WRONG TOOL: it prints its usage for 'show', so it is the 1.3.8 build, not the v2 one" ;;
+		esac
 	else
 		susfs_log "tool=MISSING (expected ${MODDIR}/tools/ksu_susfs)"
 		susfs_log "adb push ksu_susfs_arm64 /data/local/tmp/ksu_susfs also works"

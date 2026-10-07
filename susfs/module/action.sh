@@ -12,10 +12,9 @@ MODDIR=${MODDIR:-$(dirname "$0")}
 susfs_log "action tapped"
 susfs_diagnose
 
-if find_susfs_bin && [ -n "$("${SUSFS_BIN}" show version 2>/dev/null)" ]; then
-	sh "${MODDIR}/service.sh"
-	sh "${MODDIR}/boot-completed.sh"
-	susfs_log "action done, log: ${LOGFILE}"
-else
-	susfs_die "cannot apply: see the state above"
-fi
+# require_susfs exits through susfs_die when anything is missing
+require_susfs
+
+sh "${MODDIR}/service.sh"
+sh "${MODDIR}/boot-completed.sh"
+susfs_log "action done, log: ${LOGFILE}"
