@@ -20,6 +20,13 @@
 #include <linux/binfmts.h>
 #include <linux/cn_proc.h>
 
+#ifdef CONFIG_KSU_SUSFS
+/* fs/susfs_apatch.c: keeps SUSFS' per-process "no su"/"umounted"
+ * flags in sync with the credentials.  APatch's commit_su() also goes
+ * through commit_creds(), so this catches both directions. */
+void susfs_apatch_update_proc_flags(const struct cred *new);
+#endif
+
 #if 0
 #define kdebug(FMT, ...)						\
 	printk("[%-5.5s%5u] " FMT "\n",					\
@@ -479,6 +486,10 @@ int commit_creds(struct cred *new)
 		atomic_inc(&new->user->processes);
 	rcu_assign_pointer(task->real_cred, new);
 	rcu_assign_pointer(task->cred, new);
+
+#ifdef CONFIG_KSU_SUSFS
+	susfs_apatch_update_proc_flags(new);
+#endif
 	if (new->user != old->user)
 		atomic_dec(&old->user->processes);
 	alter_cred_subscribers(old, -2);

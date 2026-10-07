@@ -62,6 +62,10 @@ endif # BLOCK
 
 source "fs/nomount/Kconfig"
 
+menu "SUSFS (Super User SusFS) for APatch"
+source "fs/susfs_apatch.Kconfig"
+endmenu
+
 # Posix ACL utility routines
 #
 # Note: Posix ACLs can be implemented without these helpers.  Never use

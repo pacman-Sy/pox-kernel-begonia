@@ -14,6 +14,9 @@ selinux-$(CONFIG_SECURITY_NETWORK_XFRM) += xfrm.o
 
 selinux-$(CONFIG_NETLABEL) += netlabel.o
 
+# SUSFS glue for APatch (see security/selinux/susfs_apatch.c)
+selinux-$(CONFIG_KSU_SUSFS) += susfs_apatch.o
+
 ccflags-y := -I$(srctree)/security/selinux -I$(srctree)/security/selinux/include
 
 $(addprefix $(obj)/,$(selinux-y)): $(obj)/flask.h

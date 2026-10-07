@@ -17,6 +17,9 @@
 #include <linux/syscalls.h>
 #include <linux/pagemap.h>
 #include <linux/compat.h>
+#if defined(CONFIG_KSU_SUSFS_SUS_KSTAT) || defined(CONFIG_KSU_SUSFS_SUS_MOUNT)
+#include <linux/susfs_def.h>
+#endif
 
 #include <linux/uaccess.h>
 #include <asm/unistd.h>
@@ -30,6 +33,11 @@
  * found on the VFS inode structure.  This is the default if no getattr inode
  * operation is supplied.
  */
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+extern void susfs_generic_fillattr_spoofer(
+	struct inode *inode, struct kstat *stat);
+#endif
+
 void generic_fillattr(struct inode *inode, struct kstat *stat)
 {
 	stat->dev = inode->i_sb->s_dev;
@@ -45,6 +53,9 @@ void generic_fillattr(struct inode *inode, struct kstat *stat)
 	stat->ctime = inode->i_ctime;
 	stat->blksize = i_blocksize(inode);
 	stat->blocks = inode->i_blocks;
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+	susfs_generic_fillattr_spoofer(inode, stat);
+#endif
 
 	if (IS_NOATIME(inode))
 		stat->result_mask &= ~STATX_ATIME;
@@ -364,6 +375,7 @@ SYSCALL_DEFINE4(newfstatat, int, dfd, const char __user *, filename,
 	if (error)
 		return error;
 	return cp_new_stat(&stat, statbuf);
+
 }
 #endif
 
