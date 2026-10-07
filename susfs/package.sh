@@ -22,7 +22,9 @@ UPWEBROOT="${HERE}/module-upstream/webroot"
 OUTDIR="${1:-${HERE}/../build}"
 KSU_SUSFS_URL="https://gitlab.com/simonpunk/susfs4ksu/-/raw/gki-android15-6.6/ksu_module_susfs/tools/ksu_susfs_arm64"
 
+# Absolute, because the zip calls below run from inside the staging directory.
 mkdir -p "${OUTDIR}"
+OUTDIR=$(cd "${OUTDIR}" && pwd)
 WORK=$(mktemp -d)
 trap 'rm -rf "${WORK}"' EXIT
 
