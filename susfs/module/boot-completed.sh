@@ -28,5 +28,11 @@ done
 
 "${SUSFS_BIN}" hide_sus_mnts_for_non_su_procs 1
 
+# upstream UI variant: refresh dmesg/maps/mountinfo snapshots it displays
+if [ -f "${MODDIR}/compat.sh" ]; then
+	. "${MODDIR}/compat.sh"
+	susfs_upstream_installed && write_snapshots
+fi
+
 susfs_log "configuration done"
 exit 0

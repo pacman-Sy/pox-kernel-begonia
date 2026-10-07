@@ -92,6 +92,32 @@ mounts and no mount is hidden.  `dmesg` then contains
   real reboot path.  APatch/KernelPatch hijacks syscall 45 for its own supercall
   and does not touch `reboot(2)`, so the two do not collide.
 
+## User interface
+
+The module ships a `webroot/`, so APatch shows a WebUI button on the module in
+the manager (APatch serves `/data/adb/modules/<id>/webroot` and injects the same
+`window.ksu` bridge KernelSU does - `exec()` runs in a root shell and returns
+stdout).  Two variants are published:
+
+| zip | UI | notes |
+| --- | --- | --- |
+| `susfs_apatch-module.zip` | native, this repo | tabs for status, `sus_path`, `sus_kstat`, `sus_map`, `open_redirect`, uname/cmdline spoofing, toggles and logs; edits `conf/` |
+| `susfs_apatch-module-upstream.zip` | the community UI from [sidex15/susfs4ksu-module](https://github.com/sidex15/susfs4ksu-module) | path literals rewritten from KernelSU to this module; sections that need kernel features we do not build (`legit_mounts`, `try_umount`, sus_su) are inert |
+
+`./susfs/package.sh build` builds both.  The upstream variant is wired up by
+`susfs/module/compat.sh`, which is a no-op unless the `UPSTREAM_UI` marker is
+present:
+
+* imports the upstream root-level lists (`sus_path.txt`, `sus_maps.txt`,
+  `sus_open_redirect.txt`, `sus_path_loop.txt`, `sus_mount.txt`) into `conf/`
+* applies `sus_kstat_statically.json` through the same awk parsing upstream uses
+* writes the snapshot/log files that UI reads (`dmesg.log`, `logs/susfs.log`,
+  `pid1_mountinfo.txt`, `zygote64_maps.txt`, `ksu_module_list.txt`, ...)
+
+The UI is only a front end: every change it saves is applied by running the
+tool, because the kernel state lives in memory and nothing happens until the
+tool is invoked.
+
 ## Userspace
 
 `susfs/module` is an APatch module (Magisk layout) that runs the tool at the
@@ -246,3 +272,7 @@ cat /data/local/tmp/susfs_probe                    # root still sees it
 | `kernel/cred.c` | **new** - `TIF_PROC_*` maintenance |
 | `fs/susfs_apatch.Kconfig`, `fs/Kconfig`, `fs/Makefile`, `security/selinux/Makefile` | **new** - wiring |
 | `susfs/module/` | **new** - APatch module around the stock `ksu_susfs` tool |
+| `susfs/module/webroot/` | **new** - native WebUI (`conf/` backed) |
+| `susfs/module-upstream/webroot/` | **new** - upstream UI, KernelSU paths rewritten |
+| `susfs/module/compat.sh` | **new** - lets the upstream UI's file layout work |
+| `susfs/package.sh`, `susfs/tests/` | **new** - zip builder, jsdom UI test |

@@ -14,6 +14,10 @@ require_susfs
 susfs_log "post-fs-data: kernel susfs ${SUSFS_VERSION}"
 susfs_log "features: ${SUSFS_FEATURES}"
 
+# only does anything in the upstream-UI zip variant
+[ -f "${MODDIR}/compat.sh" ] && . "${MODDIR}/compat.sh"
+susfs_upstream_installed && import_legacy_conf
+
 # Kernel logging off by default; conf/enable_log contains 1 to turn it on.
 [ "$(read_conf enable_log.txt | head -n1)" = "1" ] && "${SUSFS_BIN}" enable_log 1
 
