@@ -104,6 +104,28 @@ git clone https://gitlab.com/simonpunk/susfs4ksu.git
 cd susfs4ksu && ./build_ksu_susfs_tool.sh      # needs the Android NDK
 ```
 
+## Known differences from the KernelSU flavour
+
+* **`CONFIG_KSU_SUSFS_TRY_UMOUNT` is not offered.**  SUSFS v2.3.0 dropped
+  `susfs_try_umount()`; what is left of it in `fs/namespace.c` stays compiled
+  out, exactly as in the `ksun` branch of this repository.
+* **`CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS` is not offered.**  The kallsyms
+  hiding hook is not part of the 4.14 port of `fs/susfs.c`, so the symbol is not
+  declared - otherwise `ksu_susfs show enabled_features` would advertise a
+  feature that does nothing.
+* **`susfs_start_sdcard_monitor_fn()` is never called.**  KernelSU calls it when
+  it receives its boot-complete event.  It forces `/data/media/0/Android` to look
+  decrypted to apps; here it is left off, because the thread it starts needs the
+  root context and SELinux to be available at that moment.  Everything else in
+  SUSFS is unaffected - the flag it clears
+  (`susfs_is_sdcard_android_data_not_decrypted`) starts out enabled.
+* **`SUS_SU` (non-kprobe `su` hooks) does not exist** for non-GKI kernels
+  upstream either, so it is not part of this port.
+* **Auto-added sus mounts are not needed.**  The `AUTO_ADD_SUS_*` options that
+  tell SUSFS which KernelSU mounts to hide stay off: APatch's `apd` runs in the
+  root context, so `fs/namespace.c` gives *every* mount it creates an `mnt_id`
+  from the sus range and they are all hidden from apps.
+
 ## Verifying on device
 
 ```sh
