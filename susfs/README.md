@@ -206,10 +206,16 @@ ksu_susfs show enabled_features
 # mounts: root's module mounts are gone from these files, for everyone
 cat /proc/self/mounts | grep -c /data/adb
 
-# paths: visible as root, invisible from an app uid
-ksu_susfs add_sus_path /data/adb/modules
-ls /data/adb/modules                 # root: still there
-su 10001 -c 'ls /data/adb/modules'   # app uid: No such file or directory
+# paths: visible as root, invisible from an app uid.
+# Use a probe under a *traversable* directory: /data/adb is mode 0700, so an
+# app uid gets EACCES from plain DAC long before susfs is consulted, which
+# looks like "susfs does not work" but is not.
+/data/local/tmp is 0771, so any uid can stat a known name inside it:
+echo probe > /data/local/tmp/susfs_probe
+su 10001 -c 'cat /data/local/tmp/susfs_probe'      # -> probe
+ksu_susfs add_sus_path /data/local/tmp/susfs_probe
+su 10001 -c 'cat /data/local/tmp/susfs_probe'      # -> No such file or directory
+cat /data/local/tmp/susfs_probe                    # root still sees it
 ```
 
 ## Files
