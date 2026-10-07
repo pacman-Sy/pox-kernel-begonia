@@ -1,0 +1,3 @@
+# the prebuilt arm64 tool is fetched at package time / on device, never committed
+tools/
+susfs.log
