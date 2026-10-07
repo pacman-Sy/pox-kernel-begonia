@@ -26,6 +26,13 @@ Because the command channel is bit-for-bit the KernelSU protocol, the **stock
 susfs4ksu `ksu_susfs` userspace tool is used unmodified** - there is no forked
 tool to keep in sync.
 
+One caveat: it must be a tool from a branch that speaks **v2**; the module's
+`ksu_susfs.url` points at `gki-android15-6.6`.  Upstream freezes `master` at
+susfs **1.3.8**, whose tool has no `show` subcommand and takes a five argument
+`set_uname <sysname> <nodename> <release> <version> <machine>`.  Pointed at this
+kernel it just prints its usage text and does nothing - the module detects that
+and tells you, instead of pretending it applied your config.
+
 ## Kernel configuration
 
 Enabled in `arch/arm64/configs/begonia_apatch_defconfig`:
@@ -105,7 +112,7 @@ places, so you can always supply it by hand:
 
 ```sh
 # on your PC
-curl -LO https://gitlab.com/simonpunk/susfs4ksu/-/raw/master/ksu_module_susfs/tools/ksu_susfs_arm64
+curl -LO https://gitlab.com/simonpunk/susfs4ksu/-/raw/gki-android15-6.6/ksu_module_susfs/tools/ksu_susfs_arm64
 adb push ksu_susfs_arm64 /data/local/tmp/ksu_susfs
 ```
 
@@ -138,6 +145,7 @@ The three states it can end in:
 | log says | meaning | fix |
 | --- | --- | --- |
 | `tool=MISSING` | `ksu_susfs` was not downloaded | put the arm64 binary in `/data/adb/modules/susfs_apatch/tools/ksu_susfs`, `chmod 755`, tap Action again |
+| `wrong tool` | you installed upstream's `master` tool (susfs 1.3.8) | install the one from the release zip, which is bundled |
 | `kernel susfs=NONE` | the tool runs but the kernel does not answer the magic | flash the kernel built from this branch (`ksu_susfs show version` must print `v2.3.0`) |
 | `ERROR: cannot apply` | one of the two above | as above |
 

@@ -47,19 +47,27 @@ else
 		rm -f "${TOOLDIR}/ksu_susfs"
 	done <<EOF
 $(cat "${MODDIR}/ksu_susfs.url" 2>/dev/null)
-https://gitlab.com/simonpunk/susfs4ksu/-/raw/master/ksu_module_susfs/tools/ksu_susfs_arm64
+# upstream master is frozen at susfs 1.3.8 (old protocol); use a v2 branch
+https://gitlab.com/simonpunk/susfs4ksu/-/raw/gki-android15-6.6/ksu_module_susfs/tools/ksu_susfs_arm64
 EOF
 fi
 
 if find_susfs_bin; then
 	chmod 0755 "${SUSFS_BIN}" 2>/dev/null
 	susfs_log "tool ready: ${SUSFS_BIN}"
-	if [ -n "$("${SUSFS_BIN}" show version 2>/dev/null)" ]; then
-		susfs_log "kernel side SUSFS is present"
-	else
-		susfs_log "WARNING: the tool is installed but the kernel has no SUSFS"
-		susfs_log "WARNING: flash the kernel built from the susfs-apatch branch"
-	fi
+	case "$("${SUSFS_BIN}" show version 2>/dev/null | head -n1)" in
+		v[0-9]*)
+			susfs_log "kernel side SUSFS is present"
+			;;
+		"")
+			susfs_log "WARNING: the tool is installed but the kernel has no SUSFS"
+			susfs_log "WARNING: flash the kernel built from the susfs-apatch branch"
+			;;
+		*)
+			susfs_log "WARNING: that tool speaks susfs 1.3.8, not the v2 protocol"
+			susfs_log "WARNING: ksu_susfs.url must point at a branch newer than 1.5 (v2.3.0)"
+			;;
+	esac
 else
 	susfs_log "ERROR: could not download ksu_susfs"
 	susfs_log "ERROR: put the arm64 binary in ${TOOLDIR}/ksu_susfs (chmod 755) and reinstall"

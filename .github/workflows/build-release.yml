@@ -105,7 +105,10 @@ jobs:
             # network on first boot), so a self-contained zip is the only
             # reliable install path.
             mkdir -p susfs/module/tools
-            KSU_SUSFS_URL="https://gitlab.com/simonpunk/susfs4ksu/-/raw/master/ksu_module_susfs/tools/ksu_susfs_arm64"
+            # NOT the master branch: upstream freezes master at susfs 1.3.8,
+            # whose tool speaks the old protocol (no 'show', 5-arg set_uname).
+            # This kernel implements the v2.3.0 command set.
+            KSU_SUSFS_URL="https://gitlab.com/simonpunk/susfs4ksu/-/raw/gki-android15-6.6/ksu_module_susfs/tools/ksu_susfs_arm64"
             if ! curl -fsSL -o susfs/module/tools/ksu_susfs "$KSU_SUSFS_URL"; then
               echo "::warning::could not download ksu_susfs, the module will fetch it on device"
               rm -f susfs/module/tools/ksu_susfs
