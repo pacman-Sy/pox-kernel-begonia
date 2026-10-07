@@ -22,6 +22,7 @@
   - [Obsidian (Memory Enhanced)](#2-obsidian-ios-style-compressed-memory)
   - [Onyx (Zero Frame-Drop Gaming)](#3-onyx-zero-frame-drop-gaming)
 - [Repository & Branch Organization](#repository--branch-organization)
+- [SUSFS for APatch (susfs4ksu)](#susfs-for-apatch-susfs4ksu)
 - [Installation Guide](#installation-guide)
 - [Verifying on Device](#verifying-on-device)
 - [Building from Source](#building-from-source)
@@ -102,6 +103,32 @@ Pox Kernel releases are categorized into distinct **Rock Editions**, designed to
 | **`main`** / **`granite`** | **Granite** | `0.9` | Official stable release branch with core stability fixes |
 | **`obsidian`** | **Obsidian** | `0.9` | Granite + iOS-Style compressed memory engine |
 | **`onyx`** | **Onyx** | `0.9` | Obsidian + Zero Frame-Drop Gaming Controller |
+| **`susfs-apatch`** | **SUSFS-APatch** | `0.9` | `feature/nomount-vfs-integration` + SUSFS kernel root hiding wired to APatch |
+
+---
+
+## SUSFS for APatch (susfs4ksu)
+
+The `susfs-apatch` branch carries [SUSFS](https://gitlab.com/simonpunk/susfs4ksu)
+(kernel level root hiding) and adapts it to APatch.  APatch has no in-tree root
+driver, so the SUSFS integration glue lives in `security/selinux/susfs_apatch.c`,
+the `CMD_SUSFS_*` command channel is answered in `kernel/reboot.c`, and the
+per-process "no su" flags are maintained from `commit_creds()`.  The stock
+susfs4ksu `ksu_susfs` tool works unmodified.
+
+What it hides, for ordinary apps only (su shells, `adb` and system services keep
+seeing everything):
+
+* root's paths, from `stat()`, `open()` and directory listings
+* root's mounts, from `/proc/<pid>/{mounts,mountinfo,stat,statfs}`
+* mmapped root files, from `/proc/<pid>/{maps,smaps,map_files}`
+* the inode number / size / timestamps of files an APM module replaced
+* optionally `uname()` and `/proc/cmdline`
+
+Enable it in `arch/arm64/configs/begonia_apatch_defconfig` with
+`CONFIG_KSU_SUSFS=y`, install the module from `susfs/module/`, and edit
+`susfs/module/conf/` to list what to hide.  Full details, including how the
+APatch specific options work, are in [susfs/README.md](susfs/README.md).
 
 ---
 
@@ -184,6 +211,8 @@ KERNEL_NAME="Pox" KERNEL_VERSION="0.9" VERSION_NAME="Onyx" ./build.sh
 - **Linux Kernel Organization**: Linus Torvalds and the worldwide Linux kernel developer community.
 - **MediaTek Inc.**: MT6785 / Helio G90T board support packages and performance drivers.
 - **osm0sis @ XDA**: AnyKernel3 flashable zip packaging template.
+- **simonpunk**: [susfs4ksu](https://gitlab.com/simonpunk/susfs4ksu), the kernel level root hiding framework.
+- **tiann (KernelSU) & bmax121 (KernelPatch)**: the root solutions whose interfaces SUSFS and APatch respectively provide.
 - **Redmi Note 8 Pro Community**: Developers and testers keeping `begonia` fast and reliable.
 
 ---
