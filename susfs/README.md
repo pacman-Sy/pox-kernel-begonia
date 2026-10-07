@@ -95,7 +95,23 @@ conf/enable_log.txt      1 = verbose SUSFS logging in dmesg
 ```
 
 `customize.sh` downloads the stock `ksu_susfs` arm64 binary on install (URL in
-`ksu_susfs.url`); drop your own build into `susfs/module/tools/` to override it.
+`ksu_susfs.url`).
+
+Stock Android has no `curl`, and APatch's installer environment has no `wget`
+either - it ships its own busybox at `/data/adb/ap/bin/busybox`, which the
+installer falls back to.  If that download is blocked (no network at first
+boot, captive portal, ...), the module keeps looking for the tool in these
+places, so you can always supply it by hand:
+
+```sh
+# on your PC
+curl -LO https://gitlab.com/simonpunk/susfs4ksu/-/raw/master/ksu_module_susfs/tools/ksu_susfs_arm64
+adb push ksu_susfs_arm64 /data/local/tmp/ksu_susfs
+```
+
+then tap Action again - no reboot needed.  Search order:
+`${MODDIR}/tools/ksu_susfs`, `/data/adb/ap/bin/ksu_susfs`,
+`/data/adb/ksu/bin/ksu_susfs`, `/data/local/tmp/ksu_susfs`.
 
 ### Where the output goes
 

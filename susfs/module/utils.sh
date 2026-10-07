@@ -43,7 +43,8 @@ find_susfs_bin() {
 	for CANDIDATE in \
 		"${MODDIR}/tools/ksu_susfs" \
 		/data/adb/ap/bin/ksu_susfs \
-		/data/adb/ksu/bin/ksu_susfs
+		/data/adb/ksu/bin/ksu_susfs \
+		/data/local/tmp/ksu_susfs
 	do
 		if [ -x "${CANDIDATE}" ]; then
 			SUSFS_BIN="${CANDIDATE}"
@@ -85,6 +86,7 @@ susfs_diagnose() {
 		fi
 	else
 		susfs_log "tool=MISSING (expected ${MODDIR}/tools/ksu_susfs)"
+		susfs_log "adb push ksu_susfs_arm64 /data/local/tmp/ksu_susfs also works"
 	fi
 	susfs_log "mounts seen from here: $(grep -c ' /data/adb' /proc/self/mounts 2>/dev/null) /data/adb entries"
 	susfs_log "--- end state ---"
