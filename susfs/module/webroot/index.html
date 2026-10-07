@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SUSFS for APatch</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <h1>SUSFS <span class="ver" id="hdrVersion">…</span></h1>
+  <div class="sub" id="hdrFeatures">reading kernel…</div>
+</header>
+
+<nav id="tabs">
+  <button data-tab="status"  class="active">Status</button>
+  <button data-tab="paths">Paths</button>
+  <button data-tab="kstat">Kstat</button>
+  <button data-tab="maps">Maps</button>
+  <button data-tab="redirect">Redirect</button>
+  <button data-tab="spoof">Spoof</button>
+  <button data-tab="logs">Logs</button>
+</nav>
+
+<main>
+
+  <!-- ── status ─────────────────────────────────────────────── -->
+  <section id="status" class="tab active">
+    <div class="card" id="statusCard">
+      <div class="row"><span>Kernel SUSFS</span><b id="stVersion">…</b></div>
+      <div class="row"><span>Variant</span><b id="stVariant">…</b></div>
+      <div class="row"><span>Tool</span><b id="stTool" class="wrap">…</b></div>
+      <div class="row"><span>Root mounts in /proc/*/mounts</span><b id="stMounts">…</b></div>
+    </div>
+
+    <h2>Compiled in features</h2>
+    <div class="card"><ul id="stFeatures" class="feat"><li>…</li></ul></div>
+
+    <div class="actions">
+      <button class="primary" id="btnApply">Apply configuration now</button>
+      <button id="btnRefreshStatus">Refresh</button>
+    </div>
+    <p class="hint">Everything SUSFS stores lives in kernel memory: a reboot clears
+    it and the module re-applies <code>conf/</code> on the next boot. Hiding is
+    visible to ordinary apps only — uid 0 keeps full access by design.</p>
+  </section>
+
+  <!-- ── sus_path ───────────────────────────────────────────── -->
+  <section id="paths" class="tab">
+    <p class="hint">Paths (and everything below them) become invisible to apps:
+    <code>stat</code>, <code>open</code>, <code>getdents</code>. Add a path that
+    exists, otherwise the kernel cannot mark its inode.</p>
+    <div class="row-add">
+      <input id="pathInput" type="text" placeholder="/data/adb/modules" spellcheck="false">
+      <button class="primary" data-add="paths">Add</button>
+    </div>
+    <ul class="list" id="listPaths"></ul>
+  </section>
+
+  <!-- ── sus_kstat ──────────────────────────────────────────── -->
+  <section id="kstat" class="tab">
+    <p class="hint">Spoof the <code>stat()</code> of a file an APM module replaced.
+    Use <code>default</code> to keep the current value. Only affects apps.</p>
+    <div class="row-add wrap">
+      <input id="kstatPath" type="text" placeholder="/system/etc/hosts" spellcheck="false">
+      <input id="kstatIno" type="text" placeholder="ino" size="6">
+      <input id="kstatDev" type="text" placeholder="dev" size="6">
+      <input id="kstatNlink" type="text" placeholder="nlink" size="5">
+      <input id="kstatSize" type="text" placeholder="size" size="7">
+      <button class="primary" data-add="kstat">Add</button>
+    </div>
+    <div class="actions">
+      <button id="btnKstatApply">apply <code>add_sus_kstat</code> + <code>update_sus_kstat</code> for every entry</button>
+    </div>
+    <ul class="list" id="listKstat"></ul>
+  </section>
+
+  <!-- ── sus_map ────────────────────────────────────────────── -->
+  <section id="maps" class="tab">
+    <p class="hint">Hide mmapped files from
+    <code>/proc/&lt;pid&gt;/{maps,smaps,map_files}</code>. One file per line.</p>
+    <div class="row-add">
+      <input id="mapInput" type="text" placeholder="/data/adb/modules/x/lib/x.so" spellcheck="false">
+      <button class="primary" data-add="maps">Add</button>
+    </div>
+    <ul class="list" id="listMaps"></ul>
+  </section>
+
+  <!-- ── open_redirect ──────────────────────────────────────── -->
+  <section id="redirect" class="tab">
+    <p class="hint">Open one path, get another. Both must exist before they are
+    registered, and their SELinux labels have to be right.</p>
+    <div class="row-add wrap">
+      <input id="rdTarget" type="text" placeholder="/system/etc/hosts" spellcheck="false">
+      <input id="rdTo" type="text" placeholder="/data/local/tmp/hosts" spellcheck="false">
+      <select id="rdScheme">
+        <option value="0">0 · non app</option>
+        <option value="1">1 · root but not su</option>
+        <option value="2">2 · non su</option>
+        <option value="3">3 · umounted app</option>
+        <option value="4">4 · umounted</option>
+      </select>
+      <button class="primary" data-add="redirect">Add</button>
+    </div>
+    <ul class="list" id="listRedirect"></ul>
+  </section>
+
+  <!-- ── spoof ──────────────────────────────────────────────── -->
+  <section id="spoof" class="tab">
+    <h2>uname</h2>
+    <div class="card">
+      <div class="row"><input id="unameRelease" type="text" placeholder="4.14.317" spellcheck="false"></div>
+      <div class="row"><input id="unameVersion" type="text" placeholder="#1 SMP PREEMPT …" spellcheck="false"></div>
+      <div class="actions"><button class="primary" id="btnUname">Save &amp; apply</button>
+      <button id="btnUnameClear">clear (use real values)</button></div>
+    </div>
+
+    <h2>/proc/cmdline</h2>
+    <p class="hint">Edit the faked command line, then apply. It replaces the one
+    the kernel reports to every process.</p>
+    <textarea id="cmdlineText" rows="4" spellcheck="false"></textarea>
+    <div class="actions">
+      <button class="primary" id="btnCmdlineApply">Apply</button>
+      <button id="btnCmdlineReset">reload from /proc/cmdline</button>
+    </div>
+
+    <h2>Kernel logging</h2>
+    <div class="card">
+      <label class="switch"><input type="checkbox" id="tglLog"><span></span>
+        verbose SUSFS logging in dmesg</label>
+      <label class="switch"><input type="checkbox" id="tglAvc"><span></span>
+        avc (denied) log spoofing</label>
+      <p class="hint" id="avcNote"></p>
+    </div>
+  </section>
+
+  <!-- ── logs ───────────────────────────────────────────────── -->
+  <section id="logs" class="tab">
+    <div class="actions">
+      <button id="btnLogModule">module log</button>
+      <button id="btnLogDmesg">dmesg (susfs only)</button>
+      <button id="btnLogRefresh">refresh</button>
+    </div>
+    <pre id="logOut" class="log"></pre>
+  </section>
+
+</main>
+
+<div id="busy" class="busy hidden"><div class="spinner"></div></div>
+<script src="app.js"></script>
+</body>
+</html>
