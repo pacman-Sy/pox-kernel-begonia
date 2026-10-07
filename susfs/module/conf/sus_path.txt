@@ -1,0 +1,2 @@
+# One path per line.  Hidden from ordinary apps only; su and adb keep seeing it.
+/data/adb/modules

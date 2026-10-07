@@ -1,0 +1,6 @@
+id=susfs_apatch
+name=SUSFS for APatch
+version=v2.3.0-apatch1
+versionCode=1
+author=pox-kernel-begonia
+description=Kernel level root hiding (susfs4ksu) wired to APatch. Keeps /proc mount info, mmaps and stat output clean for ordinary apps. Configure it in susfs/module/conf.
