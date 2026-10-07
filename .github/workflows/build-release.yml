@@ -95,33 +95,20 @@ jobs:
 
           COMMIT_SHORT="$(git rev-parse --short HEAD 2>/dev/null || echo "${{ github.sha }}" | cut -c1-8)"
 
-          MODULE_PATH=""
+          # Two module zips: native WebUI and the ported upstream one.
+          # susfs/package.sh fetches ksu_susfs so the zips are self contained.
+          MODULE_ASSETS=""
           if [ -f susfs/module/module.prop ]; then
-            MODULE_PATH="build/susfs_apatch-module.zip"
-            chmod 0755 susfs/module/*.sh 2>/dev/null || true
-
-            # Ship the tool with the module: the device may have no curl and
-            # no wget (APatch's busybox is the only downloader, and it needs
-            # network on first boot), so a self-contained zip is the only
-            # reliable install path.
-            mkdir -p susfs/module/tools
-            # NOT the master branch: upstream freezes master at susfs 1.3.8,
-            # whose tool speaks the old protocol (no 'show', 5-arg set_uname).
-            # This kernel implements the v2.3.0 command set.
-            KSU_SUSFS_URL="https://gitlab.com/simonpunk/susfs4ksu/-/raw/gki-android15-6.6/ksu_module_susfs/tools/ksu_susfs_arm64"
-            if ! curl -fsSL -o susfs/module/tools/ksu_susfs "$KSU_SUSFS_URL"; then
-              echo "::warning::could not download ksu_susfs, the module will fetch it on device"
-              rm -f susfs/module/tools/ksu_susfs
+            if ./susfs/package.sh build; then
+              for ZIP in build/susfs_apatch-module.zip build/susfs_apatch-module-upstream.zip; do
+                [ -f "$ZIP" ] && MODULE_ASSETS="$MODULE_ASSETS $ZIP"
+              done
             else
-              chmod 0755 susfs/module/tools/ksu_susfs
+              echo "::warning::susfs/package.sh failed"
             fi
-
-            ( cd susfs/module && zip -r9 "../../${MODULE_PATH}" . ) \
-              || echo "::warning::failed to package the susfs module"
-            echo "PACKAGED_MODULE=1" >> $GITHUB_ENV
-          else
-            echo "PACKAGED_MODULE=0" >> $GITHUB_ENV
           fi
+          echo "MODULE_ASSETS=${MODULE_ASSETS# }" >> $GITHUB_ENV
+
           TAG_NAME="Pox-0.9-${EDITION}-${BRANCH_NAME}-${COMMIT_SHORT}"
           RELEASE_TITLE="Pox Kernel 0.9 [${EDITION}] - ${BRANCH_NAME} (${COMMIT_SHORT})"
 
@@ -154,7 +141,8 @@ jobs:
           ### Release Assets
           - **Flashable Recovery ZIP**: \`${{ env.ZIP_NAME }}\` (Install via TWRP / OrangeFox)
           - **Kernel Binary**: \`Image.gz-dtb\`
-          - **SUSFS Module (APatch)**: \`susfs_apatch-module.zip\` (only on SUSFS builds - install in the APatch manager, edit \`conf/\` and reboot)
+          - **SUSFS Module (APatch)**: \`susfs_apatch-module.zip\` (native WebUI - install in the APatch manager)
+          - **SUSFS Module, upstream WebUI**: \`susfs_apatch-module-upstream.zip\` (same features, the community UI)
 
           ### Flashing Guide
           1. Reboot to Custom Recovery (TWRP, OrangeFox, PBRP).
@@ -173,9 +161,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ASSETS=("${{ env.ZIP_PATH }}" "build/Image.gz-dtb")
-          if [ "${{ env.PACKAGED_MODULE }}" = "1" ] && [ -f build/susfs_apatch-module.zip ]; then
-            ASSETS+=("build/susfs_apatch-module.zip")
-          fi
+          for ZIP in ${{ env.MODULE_ASSETS }}; do
+            [ -f "$ZIP" ] && ASSETS+=("$ZIP")
+          done
           gh release create "${{ env.TAG_NAME }}" \
             --target "${{ github.sha }}" \
             --title "${{ env.RELEASE_TITLE }}" \

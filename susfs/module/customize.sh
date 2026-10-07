@@ -85,6 +85,18 @@ EOF
 [ -f "${CONFDIR}/enable_log.txt" ] || echo 0 > "${CONFDIR}/enable_log.txt"
 [ -f "${CONFDIR}/uname.txt" ] || : > "${CONFDIR}/uname.txt"
 
+## Upstream WebUI variant: create the files that UI reads unconditionally.
+if [ -f "${MODDIR}/UPSTREAM_UI" ]; then
+	mkdir -p "${MODDIR}/logs"
+	for F in sus_path sus_path_loop sus_mount sus_maps sus_open_redirect try_umount legit_mounts; do
+		[ -f "${MODDIR}/${F}.txt" ] || cat > "${MODDIR}/${F}.txt" <<'EOF'
+# one entry per line; lines starting with '#' are comments
+EOF
+	done
+	[ -f "${MODDIR}/sus_kstat_statically.json" ] || echo '[]' > "${MODDIR}/sus_kstat_statically.json"
+	[ -f "${MODDIR}/ksu_module_list.txt" ] || : > "${MODDIR}/ksu_module_list.txt"
+fi
+
 ## Snapshot the real kernel command line so the user can edit a fake one.
 if [ ! -f "${CONFDIR}/fake_cmdline.txt" ] && [ -r /proc/cmdline ]; then
 	cp /proc/cmdline "${CONFDIR}/fake_cmdline.txt" 2>/dev/null

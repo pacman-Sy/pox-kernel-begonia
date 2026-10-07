@@ -9,6 +9,12 @@ MODDIR=${MODDIR:-$(dirname "$0")}
 
 require_susfs
 
+# sus_path_loop: same as sus_path but re-marks the inode when it reappears
+read_conf sus_path_loop.txt | while IFS= read -r P; do
+	[ -n "${P}" ] || continue
+	"${SUSFS_BIN}" add_sus_path_loop "${P}" >/dev/null 2>&1 && susfs_log "sus_path_loop ${P}"
+done
+
 # sus_kstat: make the mounted file look like the file it replaced.
 # Format: <target> <ino|default> <dev|default> <nlink|default> <size|default>
 read_conf sus_kstat.txt | while IFS= read -r LINE; do
@@ -56,5 +62,14 @@ fi
 
 # Keep hiding root's mounts: apd has created all of them at this point.
 "${SUSFS_BIN}" hide_sus_mnts_for_non_su_procs 1
+
+# upstream UI variant: its JSON kstat list and the files it reads
+if [ -f "${MODDIR}/compat.sh" ]; then
+	. "${MODDIR}/compat.sh"
+	susfs_upstream_installed && {
+		apply_kstat_json
+		write_snapshots
+	}
+fi
 
 exit 0
