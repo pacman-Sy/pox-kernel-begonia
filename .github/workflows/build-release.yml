@@ -99,6 +99,20 @@ jobs:
           if [ -f susfs/module/module.prop ]; then
             MODULE_PATH="build/susfs_apatch-module.zip"
             chmod 0755 susfs/module/*.sh 2>/dev/null || true
+
+            # Ship the tool with the module: the device may have no curl and
+            # no wget (APatch's busybox is the only downloader, and it needs
+            # network on first boot), so a self-contained zip is the only
+            # reliable install path.
+            mkdir -p susfs/module/tools
+            KSU_SUSFS_URL="https://gitlab.com/simonpunk/susfs4ksu/-/raw/master/ksu_module_susfs/tools/ksu_susfs_arm64"
+            if ! curl -fsSL -o susfs/module/tools/ksu_susfs "$KSU_SUSFS_URL"; then
+              echo "::warning::could not download ksu_susfs, the module will fetch it on device"
+              rm -f susfs/module/tools/ksu_susfs
+            else
+              chmod 0755 susfs/module/tools/ksu_susfs
+            fi
+
             ( cd susfs/module && zip -r9 "../../${MODULE_PATH}" . ) \
               || echo "::warning::failed to package the susfs module"
             echo "PACKAGED_MODULE=1" >> $GITHUB_ENV
