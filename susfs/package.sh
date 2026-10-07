@@ -66,4 +66,29 @@ else
 	log "warning: ${UPWEBROOT} missing, skipping the upstream-UI variant"
 fi
 
-ls -l "${OUTDIR}"/susfs_apatch-module*.zip
+# ── BRENE, ported to APatch ───────────────────────────────────
+# Kept as its own zip: it is a different module (id: brene) with its own id,
+# its own WebUI and AGPL-3.0 licensing, so it must not be merged with the one
+# above.  susfs/brene/ is the upstream module with APatch paths.
+BRENE="${HERE}/brene"
+if [ -f "${BRENE}/module.prop" ]; then
+	BRENE_OUT="${WORK}/brene"
+	mkdir -p "${BRENE_OUT}"
+	cp -r "${BRENE}/." "${BRENE_OUT}/"
+	rm -f "${BRENE_OUT}/README.upstream.md"
+	# keep the tool BRENE ships (same v2 protocol our kernel speaks); fall
+	# back to the canonical build only if it is somehow absent
+	if [ ! -f "${BRENE_OUT}/tools/susfs" ]; then
+		mkdir -p "${BRENE_OUT}/tools"
+		command -v curl >/dev/null 2>&1 &&
+			curl -fsSL -o "${BRENE_OUT}/tools/susfs" "${KSU_SUSFS_URL}"
+	fi
+	[ -f "${BRENE_OUT}/tools/susfs" ] && chmod 0755 "${BRENE_OUT}/tools/susfs"
+	chmod 0755 "${BRENE_OUT}"/*.sh
+	( cd "${BRENE_OUT}" && zip -r9 "${OUTDIR}/susfs_apatch-brene.zip" . -x 'susfs.log*' )
+	log "wrote ${OUTDIR}/susfs_apatch-brene.zip"
+else
+	log "warning: ${BRENE} missing, skipping the BRENE variant"
+fi
+
+ls -l "${OUTDIR}"/susfs_apatch-*.zip

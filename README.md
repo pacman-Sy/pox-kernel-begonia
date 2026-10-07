@@ -125,8 +125,9 @@ What it hides:
 * optionally `uname()` and `/proc/cmdline`
 
 Enable it in `arch/arm64/configs/begonia_apatch_defconfig` with
-`CONFIG_KSU_SUSFS=y`, install the module from `susfs/module/`, and edit
-`susfs/module/conf/` to list what to hide.  Full details, including how the
+`CONFIG_KSU_SUSFS=y` (with symbol hiding and avc-log spoofing on), install the
+module from `susfs/module/`, and edit `susfs/module/conf/` to list what to hide -
+or install the ported **BRENE** preset from `susfs/brene/`.  Full details, including how the
 APatch specific options work, are in [susfs/README.md](susfs/README.md).
 
 ---

@@ -94,6 +94,16 @@ config KSU_SUSFS_ENABLE_LOG
 	  Allow the userspace tool to switch susfs logging on and off at
 	  runtime.  Logging is off by default.
 
+config KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS
+	bool "Hide susfs and root driver symbols from /proc/kallsyms"
+	depends on KSU_SUSFS
+	default y
+	help
+	  Drop the susfs_* and KernelSU-style symbols from /proc/kallsyms, so an
+	  app that greps the symbol list does not learn that the kernel was
+	  patched.  Only the listing is filtered; the names remain in the table
+	  for in-kernel lookups.
+
 config KSU_SUSFS_ENABLE_AVC_LOG_SPOOFING
 	bool "Enable avc (SELinux denied) log spoofing"
 	depends on KSU_SUSFS

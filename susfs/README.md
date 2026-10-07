@@ -47,7 +47,8 @@ CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
 CONFIG_KSU_SUSFS_OPEN_REDIRECT=y       # redirect opens of a path to another one
 CONFIG_KSU_SUSFS_SUS_MAP=y             # hide mmapped files from proc maps
 CONFIG_KSU_SUSFS_ENABLE_LOG=y
-# CONFIG_KSU_SUSFS_ENABLE_AVC_LOG_SPOOFING is not set
+CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y   # hide susfs_* from /proc/kallsyms
+CONFIG_KSU_SUSFS_ENABLE_AVC_LOG_SPOOFING=y
 ```
 
 The symbols keep their upstream `CONFIG_KSU_SUSFS_*` names on purpose: the SUSFS
@@ -200,21 +201,47 @@ git clone https://gitlab.com/simonpunk/susfs4ksu.git
 cd susfs4ksu && ./build_ksu_susfs_tool.sh      # needs the Android NDK
 ```
 
+## BRENE, ported to APatch
+
+[BRENE](https://github.com/rrr333nnn333/BRENE) is the largest hiding preset in
+the community: it ships a long default list (recovery dirs, zygisk and font
+modules, `/data/local/tmp`, sdcard traces), property spoofing and an avc-log
+spoof.  It is a KernelSU/Magisk module, so `susfs/brene/` is that module with the
+APatch changes:
+
+* `/data/adb/ap/bin` (busybox, resetprop, magiskpolicy) on `PATH`
+* the tool resolves to the copy inside the module, then `/data/adb/ap/bin/susfs`,
+  then `/data/adb/ksu/bin/susfs` - the protocol is identical for both roots
+* `ksud` is pointed at nothing: `ksud feature set su_compat|kernel_umount|
+  selinux_hide` and `ksud module config set` drive KernelSU internals and would
+  have no meaning here, so they fail harmlessly instead
+* `updateJson` removed - otherwise the upstream zip would overwrite this port on
+  update
+
+Every SUSFS command it issues is in the set this kernel's dispatcher handles
+(checked against `security/selinux/susfs_apatch.c`), so nothing is silently
+dropped.  Still inert on APatch: the features that lean on KernelSU's kernel
+umount rather than SUSFS, and the sepolicy rules in `sepolicy.rule`, which
+APatch does not load for modules.
+
+It ships as its own zip, `susfs_apatch-brene.zip`, with module id `brene` -
+install it *instead of* `susfs_apatch-module.zip`, not next to it.  It is AGPL-3.0
+and keeps its `LICENSE`.
+
 ## Known differences from the KernelSU flavour
 
 * **`CONFIG_KSU_SUSFS_TRY_UMOUNT` is not offered.**  SUSFS v2.3.0 dropped
   `susfs_try_umount()`; what is left of it in `fs/namespace.c` stays compiled
   out, exactly as in the `ksun` branch of this repository.
-* **`CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS` is not offered.**  The kallsyms
-  hiding hook is not part of the 4.14 port of `fs/susfs.c`, so the symbol is not
-  declared - otherwise `ksu_susfs show enabled_features` would advertise a
-  feature that does nothing.
-* **`susfs_start_sdcard_monitor_fn()` is never called.**  KernelSU calls it when
-  it receives its boot-complete event.  It forces `/data/media/0/Android` to look
-  decrypted to apps; here it is left off, because the thread it starts needs the
-  root context and SELinux to be available at that moment.  Everything else in
-  SUSFS is unaffected - the flag it clears
-  (`susfs_is_sdcard_android_data_not_decrypted`) starts out enabled.
+* **`susfs_start_sdcard_monitor_fn()` is started by the glue**, not by a
+  boot-complete event: `security/selinux/susfs_apatch.c` starts it the first time
+  the SELinux policy turns out to be loaded, because the monitor thread needs the
+  root context before it can commit it.
+* **`CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS` is ported here** rather than taken
+  from upstream: `kernel/kallsyms.c` skips the `susfs_*`/KernelSU-style names
+  when it prints `/proc/kallsyms`.  Only the listing is filtered - the names
+  stay in the table for in-kernel lookups.  The WebUI Status tab shows the count
+  so you can confirm it works.
 * **`SUS_SU` (non-kprobe `su` hooks) does not exist** for non-GKI kernels
   upstream either, so it is not part of this port.
 * **Auto-added sus mounts are not needed.**  The `AUTO_ADD_SUS_*` options that

@@ -161,6 +161,13 @@ function refreshStatus() {
   const mounts = exec("grep -c ' /data/adb' /proc/self/mounts 2>/dev/null").trim();
   document.getElementById("stMounts").textContent = mounts === "" ? "?" : mounts;
 
+  /* CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS filters these out of the
+   * listing; a non-zero count means the option is off (or /proc/kallsyms is
+   * unreadable, which is normal for an app but not for this root shell). */
+  const syms = exec("grep -c susfs /proc/kallsyms 2>/dev/null").trim();
+  document.getElementById("stKallsyms").textContent =
+    syms === "" ? "not readable" : syms === "0" ? "0 (hidden)" : syms;
+
   /* avc spoofing is a compile time option; say so instead of offering a dead switch */
   const hasAvc = features.some((f) => f.includes("AVC"));
   const avc = document.getElementById("tglAvc");

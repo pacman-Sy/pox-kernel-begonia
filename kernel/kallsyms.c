@@ -593,6 +593,33 @@ static void s_stop(struct seq_file *m, void *p)
 {
 }
 
+#ifdef CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS
+/*
+ * Skip the symbols that give SUSFS (and a KernelSU-style driver) away.  This
+ * only hides them from /proc/kallsyms listings; the names stay in the table,
+ * so nothing inside the kernel loses access.  The KernelSU prefixes are kept
+ * even though this tree has no KernelSU: a future in-tree driver would be
+ * hidden as well, and a stale entry costs one string compare.
+ */
+static bool susfs_kallsyms_symbol_is_hidden(const char *name)
+{
+	static const char *const prefixes[] = {
+		"susfs_", "ksu_", "__ksu_", "is_ksu_", "is_manager_",
+		"ksud", "kernelsu", "escape_to_", "setup_selinux",
+		"on_post_fs_data", "try_umount", "apply_kernelsu",
+		"handle_sepolicy", "is_zygote", "track_throne",
+		"getenforce", "setenforce",
+	};
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(prefixes); i++) {
+		if (strncmp(name, prefixes[i], strlen(prefixes[i])) == 0)
+			return true;
+	}
+	return false;
+}
+#endif
+
 static int s_show(struct seq_file *m, void *p)
 {
 	struct kallsym_iter *iter = m->private;
@@ -600,6 +627,11 @@ static int s_show(struct seq_file *m, void *p)
 	/* Some debugging symbols have no name.  Ignore them. */
 	if (!iter->name[0])
 		return 0;
+
+#ifdef CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS
+	if (susfs_kallsyms_symbol_is_hidden(iter->name))
+		return 0;
+#endif
 
 	if (iter->module_name[0]) {
 		char type;

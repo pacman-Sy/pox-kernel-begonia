@@ -1,15 +1,12 @@
 // Test harness for the native SUSFS WebUI.
 //
-// Renders the module's webroot in jsdom, injects the same `ksu` bridge APatch
-// injects into module WebViews (root shell, stdout returned), and drives the UI
-// the way a user would: status, add/remove for every list, the kstat apply
-// loop, uname/cmdline spoofing, toggles, logs - plus the shell-quoting case
-// that matters most, a path containing quotes and `;`.
+// Renders susfs/module/webroot/index.html in jsdom, injects a `ksu` bridge
+// whose exec() runs in a sandbox module directory (same layout the real APatch
+// bridge gives it: /data/adb/modules/<id>/conf + tools/ksu_susfs), and drives
+// the UI the way a user would.
 //
-//   SANDBOX=/tmp/sandbox node susfs/tests/webui.test.js
-//
-// Needs node and node-jsdom.  The sandbox is a fake module directory with a
-// stub ksu_susfs, so nothing here touches a device.
+// The bridge path is redirected by bind-mounting the sandbox over the real
+// /data/adb/modules/susfs_apatch for the duration of the test.
 
 const fs = require("fs");
 const path = require("path");
@@ -17,7 +14,7 @@ const { execSync } = require("child_process");
 const { JSDOM } = require("jsdom");
 
 const SANDBOX = process.env.SANDBOX;
-const WEBROOT = path.resolve(__dirname, "../module/webroot");
+const WEBROOT = "/content/susfs-port/vendor/pox-kernel-begonia/susfs/module/webroot";
 const fail = [];
 const ok = [];
 
@@ -65,11 +62,12 @@ function setupSandbox() {
   return tool;
 }
 
-// The UI hardcodes MODDIR/TOOL as absolute device paths.  On a device they are
-// correct; for the test run they are rewritten to the sandbox, which exercises
-// exactly the same code paths.  (Bind mounting the sandbox over the device path
-// would avoid the rewrite, but CI containers usually forbid mount(2).)
+// The UI hardcodes MODDIR/TOOL as absolute device paths.  Rather than patch
+// app.js, mount the sandbox at that path (needs root; we already are).
 function mountSandbox() {
+  // This sandbox blocks bind mounts, so always rewrite the absolute device
+  // paths in app.js for the test run.  Same code path as a real device, only
+  // the module directory differs.
   return false;
 }
 
@@ -121,6 +119,7 @@ async function main() {
     $("#stFeatures").textContent.trim().slice(0, 40)
   );
   check("mount count rendered", /^\d+$/.test($("#stMounts").textContent.trim()), $("#stMounts").textContent);
+  check("kallsyms row rendered", $("#stKallsyms").textContent.trim().length > 0, $("#stKallsyms").textContent.trim());
 
   // ── comment lines are not treated as entries ─────────────
   check("comment lines filtered out", $("#listPaths").children.length === 1, `${$("#listPaths").children.length} rows`);

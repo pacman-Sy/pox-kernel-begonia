@@ -42,6 +42,7 @@
 #include <linux/export.h>
 #include <linux/fs.h>
 #include <linux/init.h>
+#include <linux/kthread.h>
 #include <linux/printk.h>
 #include <linux/sched.h>
 #include <linux/securebits.h>
@@ -70,6 +71,8 @@
  */
 struct cred *ksu_cred;
 EXPORT_SYMBOL_GPL(ksu_cred);
+
+static void susfs_apatch_maybe_start_sdcard_monitor(void);
 
 /* Cached SIDs of the APatch root contexts and of zygote. */
 static u32 susfs_apatch_su_sid[SUSFS_APATCH_MAX_SU_DOMAINS];
@@ -138,6 +141,7 @@ static void susfs_apatch_resolve_sids(void)
 	if (n && susfs_apatch_zygote_sid) {
 		susfs_apatch_sids_ready = true;
 		SUSFS_APATCH_LOGI("root contexts resolved, zygote sid %u\n", susfs_apatch_zygote_sid);
+		susfs_apatch_maybe_start_sdcard_monitor();
 	} else if (!susfs_apatch_sid_warned) {
 		susfs_apatch_sid_warned = true;
 		SUSFS_APATCH_LOGE("cannot resolve '%s' / '%s', root mounts stay visible;"
@@ -411,6 +415,26 @@ void susfs_apatch_update_proc_flags(const struct cred *new)
 
 	clear_thread_flag(TIF_PROC_NO_SU);
 	clear_thread_flag(TIF_PROC_UMOUNTED);
+}
+
+/*
+ * SUSFS ships an sdcard monitor that makes /data/media/0/Android look
+ * decrypted.  KernelSU starts it from its boot-complete event; here it is
+ * started the first time the SELinux policy turns out to be loaded, because
+ * the monitor thread needs the root context before it can commit it.
+ *
+ * Called only from susfs_apatch_resolve_sids(), which runs in sleepable paths
+ * (mount, open, proc read), so kthread_run() here is safe.
+ */
+static bool susfs_apatch_sdcard_monitor_started;
+
+static void susfs_apatch_maybe_start_sdcard_monitor(void)
+{
+	if (susfs_apatch_sdcard_monitor_started)
+		return;
+	susfs_apatch_sdcard_monitor_started = true;
+	SUSFS_APATCH_LOGI("starting the sdcard monitor\n");
+	susfs_start_sdcard_monitor_fn();
 }
 
 static int __init susfs_apatch_init(void)

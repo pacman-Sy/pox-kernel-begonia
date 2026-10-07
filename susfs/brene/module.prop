@@ -1,0 +1,7 @@
+id=brene
+name=.BRENE - SuSFS
+version=v0.0.69
+versionCode=69
+author=rrr333nnn333, simonpunk, KOWX712
+description=A SuSFS module for APatch (port of rrr333nnn333/BRENE for SUSFS patched kernels). KernelSU-specific features are inert; sus_path, sus_mount, sus_kstat, sus_map, open_redirect, uname/cmdline spoofing and avc log spoofing work.
+# updateJson intentionally removed: the upstream module would overwrite this APatch port

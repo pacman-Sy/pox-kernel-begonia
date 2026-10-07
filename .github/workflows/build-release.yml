@@ -100,7 +100,7 @@ jobs:
           MODULE_ASSETS=""
           if [ -f susfs/module/module.prop ]; then
             if ./susfs/package.sh build; then
-              for ZIP in build/susfs_apatch-module.zip build/susfs_apatch-module-upstream.zip; do
+              for ZIP in build/susfs_apatch-module.zip build/susfs_apatch-module-upstream.zip build/susfs_apatch-brene.zip; do
                 [ -f "$ZIP" ] && MODULE_ASSETS="$MODULE_ASSETS $ZIP"
               done
             else
@@ -143,6 +143,7 @@ jobs:
           - **Kernel Binary**: \`Image.gz-dtb\`
           - **SUSFS Module (APatch)**: \`susfs_apatch-module.zip\` (native WebUI - install in the APatch manager)
           - **SUSFS Module, upstream WebUI**: \`susfs_apatch-module-upstream.zip\` (same features, the community UI)
+          - **BRENE (ported to APatch)**: \`susfs_apatch-brene.zip\` (bigger hiding preset, separate module id)
 
           ### Flashing Guide
           1. Reboot to Custom Recovery (TWRP, OrangeFox, PBRP).
