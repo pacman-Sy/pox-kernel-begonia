@@ -13,7 +13,9 @@ concurrency:
 jobs:
   build:
     name: Build & Release Pox Kernel
-    runs-on: ubuntu-22.04
+    # TRB Clang 18 binaries are linked against GLIBC_2.36+, which rules out
+    # ubuntu-22.04 (glibc 2.35).
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
 
@@ -30,7 +32,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             bc bison build-essential ccache curl flex g++-multilib \
             gcc-multilib git gnupg gperf libelf-dev libssl-dev lz4 \
-            make zip python3 python-is-python3 libncurses5-dev libncurses5
+            make zip python3 python-is-python3 libncurses-dev pahole
 
       - name: Setup CCache
         uses: actions/cache@v4
