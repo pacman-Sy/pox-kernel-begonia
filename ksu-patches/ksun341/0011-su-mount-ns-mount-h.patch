@@ -1,0 +1,17 @@
+diff --git a/kernel/infra/su_mount_ns.c b/kernel/infra/su_mount_ns.c
+index 3d0631a..cc998db 100644
+--- a/kernel/infra/su_mount_ns.c
++++ b/kernel/infra/su_mount_ns.c
+@@ -13,7 +13,12 @@
+ #include <linux/syscalls.h>
+ #include <linux/task_work.h>
+ #include <linux/version.h>
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0)
+ #include <uapi/linux/mount.h>
++#else
++/* NEW_HEADERS was split out of fs.h in 5.0 */
++#include <uapi/linux/fs.h>
++#endif
+ 
+ #include "arch.h"
+ #include "klog.h" // IWYU pragma: keep
