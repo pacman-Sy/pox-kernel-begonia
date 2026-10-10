@@ -1,0 +1,32 @@
+diff --git a/kernel/hook/arm64/patch_memory.c b/kernel/hook/arm64/patch_memory.c
+index d58f2e4..f1b34ac 100644
+--- a/kernel/hook/arm64/patch_memory.c
++++ b/kernel/hook/arm64/patch_memory.c
+@@ -79,7 +79,8 @@ unsigned long phys_from_virt(unsigned long addr, int *err)
+     if (!pte_present(*pte))
+         goto fail;
+ 
+-    return __pte_to_phys(*pte) + ((addr & ~PAGE_MASK));
++    /* pre-5.x arm64 has pte_pfn(), not __pte_to_phys() */
++    return (pte_pfn(*pte) << PAGE_SHIFT) + ((addr & ~PAGE_MASK));
+ 
+ fail:
+     *err = -ENOENT;
+@@ -102,7 +103,7 @@ fail:
+ #define ksu_flush_icache(start, end) caches_clean_inval_pou(start, end)
+ #else
+ #define ksu_flush_dcache(start, sz) __flush_dcache_area((void *)start, sz)
+-#define ksu_flush_icache(start, end) __flush_icache_range(start, end)
++#define ksu_flush_icache(start, end) flush_icache_range(start, end)
+ #endif
+ 
+ struct patch_text_info {
+@@ -151,7 +152,7 @@ static int ksu_patch_text_nosync(void *dst, void *src, size_t len, int flags)
+     void *map = set_fixmap_offset(FIX_TEXT_POKE0, phy);
+     pr_debug("fixmap addr for patch 0x%lx: 0x%lx\n", p, (unsigned long)map);
+ 
+-    ret = (int)copy_to_kernel_nofault(map, src, len);
++    ret = (int)probe_kernel_write(map, src, len);
+ 
+     clear_fixmap(FIX_TEXT_POKE0);
+ 
