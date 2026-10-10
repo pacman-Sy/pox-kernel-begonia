@@ -1,0 +1,51 @@
+diff --git a/kernel/Kbuild b/kernel/Kbuild
+index b9d91f8..dbd83ea 100644
+--- a/kernel/Kbuild
++++ b/kernel/Kbuild
+@@ -1,5 +1,6 @@
+ kernelsu-objs := core/init.o
+ 
++kernelsu-objs += compat/kernel_compat.o
+ kernelsu-objs += feature/kernel_umount.o
+ kernelsu-objs += feature/sulog.o
+ kernelsu-objs += feature/sucompat.o
+diff --git a/kernel/hook/setuid_hook.c b/kernel/hook/setuid_hook.c
+index 3cccc78..fef92cf 100644
+--- a/kernel/hook/setuid_hook.c
++++ b/kernel/hook/setuid_hook.c
+@@ -20,6 +20,17 @@
+ #include "supercall/supercall.h"
+ #include "hook/tp_marker.h"
+ #include "feature/kernel_umount.h"
++#include "compat/kernel_compat.h"
++
++/* seccomp allow-cache bookkeeping only exists on 5.10+, where struct
++ * seccomp_filter grew the cache member. Below that, legacy disables
++ * seccomp for the manager instead. */
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
++#define ksu_seccomp_allow_reboot() \
++    ksu_seccomp_allow_cache(current->seccomp.filter, __NR_reboot)
++#else
++#define ksu_seccomp_allow_reboot() disable_seccomp()
++#endif
+ 
+ int ksu_handle_setresuid(uid_t old_uid, uid_t new_uid)
+ {
+@@ -29,7 +40,7 @@ int ksu_handle_setresuid(uid_t old_uid, uid_t new_uid)
+ 
+     if (unlikely(is_uid_manager(new_uid))) {
+         spin_lock_irq(&current->sighand->siglock);
+-        ksu_seccomp_allow_cache(current->seccomp.filter, __NR_reboot);
++        ksu_seccomp_allow_reboot();
+         ksu_set_task_tracepoint_flag(current);
+         spin_unlock_irq(&current->sighand->siglock);
+ 
+@@ -42,7 +53,7 @@ int ksu_handle_setresuid(uid_t old_uid, uid_t new_uid)
+         if (current->seccomp.mode == SECCOMP_MODE_FILTER &&
+             current->seccomp.filter) {
+             spin_lock_irq(&current->sighand->siglock);
+-            ksu_seccomp_allow_cache(current->seccomp.filter, __NR_reboot);
++            ksu_seccomp_allow_reboot();
+             spin_unlock_irq(&current->sighand->siglock);
+         }
+         ksu_set_task_tracepoint_flag(current);
