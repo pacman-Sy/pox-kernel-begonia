@@ -1,0 +1,430 @@
+diff --git a/kernel/Kbuild b/kernel/Kbuild
+index b9d91f8..dbd83ea 100644
+--- a/kernel/Kbuild
++++ b/kernel/Kbuild
+@@ -1,5 +1,6 @@
+ kernelsu-objs := core/init.o
+ 
++kernelsu-objs += compat/kernel_compat.o
+ kernelsu-objs += feature/kernel_umount.o
+ kernelsu-objs += feature/sulog.o
+ kernelsu-objs += feature/sucompat.o
+diff --git a/kernel/compat/kernel_compat.c b/kernel/compat/kernel_compat.c
+new file mode 100644
+index 0000000..6deb054
+--- /dev/null
++++ b/kernel/compat/kernel_compat.c
+@@ -0,0 +1,174 @@
++#include <linux/version.h>
++#include <linux/fs.h>
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
++#include <linux/sched/task.h>
++#else
++#include <linux/sched.h>
++#endif
++#include <linux/uaccess.h>
++#include <linux/fdtable.h>
++#include "klog.h" // IWYU pragma: keep
++#include "kernel_compat.h"
++
++struct file *ksu_filp_open_compat(const char *filename, int flags, umode_t mode)
++{
++	return filp_open(filename, flags, mode);
++}
++
++ssize_t ksu_kernel_read_compat(struct file *p, void *buf, size_t count,
++			       loff_t *pos)
++{
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0) ||                          \
++	defined(KSU_OPTIONAL_KERNEL_READ)
++	return kernel_read(p, buf, count, pos);
++#else
++	loff_t offset = pos ? *pos : 0;
++	ssize_t result = kernel_read(p, offset, (char *)buf, count);
++	if (pos && result > 0) {
++		*pos = offset + result;
++	}
++	return result;
++#endif
++}
++
++ssize_t ksu_kernel_write_compat(struct file *p, const void *buf, size_t count,
++				loff_t *pos)
++{
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0) ||                          \
++	defined(KSU_OPTIONAL_KERNEL_WRITE)
++	return kernel_write(p, buf, count, pos);
++#else
++	loff_t offset = pos ? *pos : 0;
++	ssize_t result = kernel_write(p, buf, count, offset);
++	if (pos && result > 0) {
++		*pos = offset + result;
++	}
++	return result;
++#endif
++}
++
++
++#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0) && !defined(KSU_HAS_PATH_MOUNT))
++extern long do_mount(const char *dev_name, const char __user *dir_name,
++		     const char *type_page, unsigned long flags,
++		     void *data_page);
++
++int path_mount(const char *dev_name, struct path *path, const char *type_page,
++	       unsigned long flags, void *data_page)
++{
++	mm_segment_t old_fs;
++	long ret = 0;
++	char buf[384];
++
++	char *realpath = d_path(path, buf, sizeof(buf));
++	if (IS_ERR(realpath)) {
++		pr_err("ksu_mount: d_path failed, err: %lu\n",
++		       PTR_ERR(realpath));
++		return PTR_ERR(realpath);
++	}
++
++	old_fs = get_fs();
++	set_fs(KERNEL_DS);
++	ret = do_mount(dev_name, (const char __user *)realpath, type_page,
++		       flags, data_page);
++	set_fs(old_fs);
++	return ret;
++}
++#endif
++
++long ksu_copy_from_user_nofault(void *dst, const void __user *src, size_t size)
++{
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 8, 0)
++    return copy_from_user_nofault(dst, src, size);
++#else
++    // https://elixir.bootlin.com/linux/v5.8/source/mm/maccess.c#L205
++    long ret = -EFAULT;
++    mm_segment_t old_fs = get_fs();
++
++    set_fs(USER_DS);
++    // tweaked to use ksu_access_ok
++    if (ksu_access_ok(src, size)) {
++        pagefault_disable();
++        ret = __copy_from_user_inatomic(dst, src, size);
++        pagefault_enable();
++    }
++    set_fs(old_fs);
++
++    if (ret)
++        return -EFAULT;
++    return 0;
++#endif
++}
++
++#ifndef KSU_OPTIONAL_STRNCPY
++long strncpy_from_user_nofault(char *dst, const void __user *unsafe_addr,
++				   long count)
++{
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
++	return strncpy_from_unsafe_user(dst, unsafe_addr, count);
++#else
++	mm_segment_t old_fs = get_fs();
++	long ret;
++
++	if (unlikely(count <= 0))
++		return 0;
++
++	set_fs(USER_DS);
++	pagefault_disable();
++	ret = strncpy_from_user(dst, unsafe_addr, count);
++	pagefault_enable();
++	set_fs(old_fs);
++
++	if (ret >= count) {
++		ret = count;
++		dst[ret - 1] = '\0';
++	} else if (ret > 0) {
++		ret++;
++	}
++
++	return ret;
++#endif
++}
++#endif // #ifndef KSU_OPTIONAL_STRNCPY
++
++static void *__kvmalloc(size_t size, gfp_t flags)
++{
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
++// https://elixir.bootlin.com/linux/v4.4.302/source/security/apparmor/lib.c#L79
++	void *buffer = NULL;
++
++	if (size == 0)
++		return NULL;
++
++	/* do not attempt kmalloc if we need more than 16 pages at once */
++	if (size <= (16 * PAGE_SIZE))
++		buffer = kmalloc(size, flags | GFP_NOIO | __GFP_NOWARN);
++	if (!buffer) {
++		if (flags & __GFP_ZERO)
++			buffer = vzalloc(size);
++		else
++			buffer = vmalloc(size);
++	}
++	return buffer;
++#else
++	return kvmalloc(size, flags);
++#endif
++}
++
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
++// https://elixir.bootlin.com/linux/v5.10.247/source/mm/util.c#L664
++void *ksu_compat_kvrealloc(const void *p, size_t oldsize, size_t newsize,
++			   gfp_t flags)
++{
++	void *newp;
++
++	if (oldsize >= newsize)
++		return (void *)p;
++	newp = __kvmalloc(newsize, flags);
++	if (!newp)
++		return NULL;
++	memcpy(newp, p, oldsize);
++	kvfree(p);
++	return newp;
++}
++#endif
+diff --git a/kernel/compat/kernel_compat.h b/kernel/compat/kernel_compat.h
+new file mode 100644
+index 0000000..090aab8
+--- /dev/null
++++ b/kernel/compat/kernel_compat.h
+@@ -0,0 +1,130 @@
++#ifndef __KSU_H_KERNEL_COMPAT
++#define __KSU_H_KERNEL_COMPAT
++
++#include <linux/fs.h>
++#include <linux/version.h>
++#include <linux/task_work.h>
++#include "ss/policydb.h"
++#include "linux/key.h"
++
++/*
++ * Adapt to Huawei HISI kernel without affecting other kernels ,
++ * Huawei Hisi Kernel EBITMAP Enable or Disable Flag ,
++ * From ss/ebitmap.h
++ */
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)) &&                         \
++		(LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0)) ||             \
++	(LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)) &&                    \
++		(LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0))
++#ifdef HISI_SELINUX_EBITMAP_RO
++#define CONFIG_IS_HW_HISI
++#endif
++#endif
++
++// Checks for UH, KDP and RKP
++#ifdef SAMSUNG_UH_DRIVER_EXIST
++#if defined(CONFIG_UH) || defined(CONFIG_KDP) || defined(CONFIG_RKP)
++#error "CONFIG_UH, CONFIG_KDP and CONFIG_RKP is enabled! Please disable or remove it before compile a kernel with KernelSU!"
++#endif
++#endif
++
++extern struct file *ksu_filp_open_compat(const char *filename, int flags,
++					 umode_t mode);
++extern ssize_t ksu_kernel_read_compat(struct file *p, void *buf, size_t count,
++				      loff_t *pos);
++extern ssize_t ksu_kernel_write_compat(struct file *p, const void *buf,
++				       size_t count, loff_t *pos);
++
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0) ||                           \
++	defined(CONFIG_IS_HW_HISI) || defined(CONFIG_KSU_ALLOWLIST_WORKAROUND)
++extern struct key *init_session_keyring;
++#endif
++
++extern long ksu_copy_from_user_nofault(void *dst, const void __user *src, size_t size);
++/*
++ * ksu_copy_from_user_retry
++ * try nofault copy first, if it fails, try with plain
++ * paramters are the same as copy_from_user
++ * 0 = success
++ */
++static inline long ksu_copy_from_user_retry(void *to, 
++		const void __user *from, unsigned long count)
++{
++	long ret = ksu_copy_from_user_nofault(to, from, count);
++	if (likely(!ret))
++		return ret;
++
++	// we faulted! fallback to slow path
++	return copy_from_user(to, from, count);
++}
++
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
++extern void *ksu_compat_kvrealloc(const void *p, size_t oldsize, size_t newsize,
++				  gfp_t flags);
++#endif
++
++
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
++static inline void *ksu_kvmalloc(size_t size, gfp_t flags)
++{
++	void *buf = kmalloc(size, flags);
++	if (!buf)
++		buf = vmalloc(size);
++	
++	return buf;
++}
++
++static inline void ksu_kvfree(const void *buf)
++{
++	if (is_vmalloc_addr(buf))
++		vfree(buf);
++	else
++		kfree(buf);
++}
++#define kvmalloc ksu_kvmalloc
++#define kvfree ksu_kvfree
++#endif
++
++// https://elixir.bootlin.com/linux/v4.14.222/source/lib/string.c#L282
++static inline ssize_t __strscpy_pad(char *dest, const char *src, size_t count)
++{
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 222)
++    return strscpy_pad(dest, src, count);
++#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
++    ssize_t res = strscpy(dest, src, count);
++    if (res >= 0 && (size_t)res < count) {
++        memset(dest + res, 0, count - res);
++    }
++    return res;
++#else
++    if (count == 0)
++        return -E2BIG;
++
++    memcpy(dest, src, count);
++    dest[count - 1] = '\0';
++    return strlen(dest);
++#endif
++}
++
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0)
++#define ksu_access_ok(addr, size) access_ok(addr, size)
++#else
++#define ksu_access_ok(addr, size) access_ok(VERIFY_READ, addr, size)
++#endif
++
++#ifndef KSU_OPTIONAL_STRNCPY
++extern long strncpy_from_user_nofault(char *dst, const void __user *unsafe_addr,
++				   long count);
++#endif // #ifndef KSU_OPTIONAL_STRNCPY
++
++// Linux >= 5.7
++// task_work_add (struct, struct, enum)
++// Linux pre-5.7
++// task_work_add (struct, struct, bool)
++#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 7, 0)
++#ifndef TWA_RESUME
++#define TWA_RESUME true
++#endif
++#endif
++
++#endif // #ifndef __KSU_H_KERNEL_COMPAT
+diff --git a/kernel/hook/setuid_hook.c b/kernel/hook/setuid_hook.c
+index 3cccc78..510057f 100644
+--- a/kernel/hook/setuid_hook.c
++++ b/kernel/hook/setuid_hook.c
+@@ -1,25 +1,28 @@
+ #include <linux/compiler.h>
+ #include <linux/version.h>
++#include <linux/sched/signal.h>
+ #include <linux/slab.h>
+ #include <linux/task_work.h>
+ #include <linux/thread_info.h>
+ #include <linux/seccomp.h>
+ #include <linux/printk.h>
+ #include <linux/sched.h>
+-#include <linux/sched/signal.h>
+ #include <linux/string.h>
+ #include <linux/types.h>
+ #include <linux/uaccess.h>
+ #include <linux/uidgid.h>
+ 
++#include "policy/app_profile.h"
+ #include "policy/allowlist.h"
++#include "policy/app_profile.h"
+ #include "hook/setuid_hook.h"
+ #include "klog.h" // IWYU pragma: keep
+ #include "manager/manager_identity.h"
+ #include "infra/seccomp_cache.h"
+ #include "supercall/supercall.h"
+-#include "hook/tp_marker.h"
++#include "hook/hook_manager.h"
+ #include "feature/kernel_umount.h"
++#include "compat/kernel_compat.h"
+ 
+ int ksu_handle_setresuid(uid_t old_uid, uid_t new_uid)
+ {
+@@ -28,10 +31,18 @@ int ksu_handle_setresuid(uid_t old_uid, uid_t new_uid)
+     pr_info("handle_setresuid from %d to %d\n", old_uid, new_uid);
+ 
+     if (unlikely(is_uid_manager(new_uid))) {
+-        spin_lock_irq(&current->sighand->siglock);
+-        ksu_seccomp_allow_cache(current->seccomp.filter, __NR_reboot);
++
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
++        if (current->seccomp.mode == SECCOMP_MODE_FILTER && current->seccomp.filter) {
++            ksu_seccomp_allow_cache(current->seccomp.filter, __NR_reboot);
++        }
++#else
++		disable_seccomp();
++#endif
++
++#ifdef KSU_KPROBES_HOOK
+         ksu_set_task_tracepoint_flag(current);
+-        spin_unlock_irq(&current->sighand->siglock);
++#endif
+ 
+         pr_info("install fd for manager: %d\n", new_uid);
+         ksu_install_fd();
+@@ -39,15 +50,21 @@ int ksu_handle_setresuid(uid_t old_uid, uid_t new_uid)
+     }
+ 
+     if (ksu_is_allow_uid_for_current(new_uid)) {
+-        if (current->seccomp.mode == SECCOMP_MODE_FILTER &&
+-            current->seccomp.filter) {
+-            spin_lock_irq(&current->sighand->siglock);
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
++        if (current->seccomp.mode == SECCOMP_MODE_FILTER && current->seccomp.filter) {
+             ksu_seccomp_allow_cache(current->seccomp.filter, __NR_reboot);
+-            spin_unlock_irq(&current->sighand->siglock);
+         }
+-        ksu_set_task_tracepoint_flag(current);
+-    } else {
+-        ksu_clear_task_tracepoint_flag_if_needed(current);
++#else
++		disable_seccomp();
++#endif
++
++#ifdef KSU_KPROBES_HOOK
++		ksu_set_task_tracepoint_flag(current);
++#endif
++	} else {
++#ifdef KSU_KPROBES_HOOK
++		ksu_clear_task_tracepoint_flag_if_needed(current);
++#endif
+     }
+ 
+     // Handle kernel umount
+@@ -58,11 +75,11 @@ int ksu_handle_setresuid(uid_t old_uid, uid_t new_uid)
+ 
+ void __init ksu_setuid_hook_init(void)
+ {
+-    ksu_kernel_umount_init();
++	ksu_kernel_umount_init();
+ }
+ 
+ void __exit ksu_setuid_hook_exit(void)
+ {
+-    pr_info("ksu_core_exit\n");
+-    ksu_kernel_umount_exit();
+-}
++	pr_info("ksu_core_exit\n");
++	ksu_kernel_umount_exit();
++}
+\ No newline at end of file
