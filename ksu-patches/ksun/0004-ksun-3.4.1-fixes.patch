@@ -1,0 +1,229 @@
+diff --git a/kernel/manager/apk_sign.c b/kernel/manager/apk_sign.c
+index f0da7319..bda9b982 100644
+--- a/kernel/manager/apk_sign.c
++++ b/kernel/manager/apk_sign.c
+@@ -340,15 +340,7 @@ int get_pkg_from_apk_dir_path(char *pkg, const char *path)
+ 	if (len >= KSU_MAX_PACKAGE_NAME || len < 1)
+ 		return -1;
+ 
+-	const char *last_slash = NULL;
+-	int i;
+-	for (i = len - 1; i >= 0; i--) {
+-		if (path[i] == '/') {
+-			last_slash = &path[i];
+-			break;
+-		}
+-	}
+-
++	const char *last_slash = strrchr(path, '/');
+ 	if (!last_slash)
+ 		return -1;
+ 
+diff --git a/kernel/manager/pkg_observer.c b/kernel/manager/pkg_observer.c
+index af44079d..112d0d92 100644
+--- a/kernel/manager/pkg_observer.c
++++ b/kernel/manager/pkg_observer.c
+@@ -3,8 +3,10 @@
+ #include <linux/fs.h>
+ #include <linux/namei.h>
+ #include <linux/fsnotify_backend.h>
++#include <linux/sched.h>
+ #include <linux/slab.h>
+ #include <linux/rculist.h>
++#include <linux/task_work.h>
+ #include <linux/version.h>
+ #include "klog.h" // IWYU pragma: keep
+ #include "throne_tracker.h"
+@@ -23,6 +25,45 @@ struct watch_dir {
+ 
+ static struct fsnotify_group *g;
+ 
++// task_work_add() only grew the notify enum in 5.7 (e91b48162332); before
++// that the third argument was a plain bool, and true is what TWA_RESUME means.
++#if KERNEL_VERSION(5, 7, 0) <= LINUX_VERSION_CODE
++#define KSU_TWA_RESUME TWA_RESUME
++#else
++#define KSU_TWA_RESUME true
++#endif
++
++static void ksu_track_throne_tw_func(struct callback_head *cb)
++{
++	kfree(cb);
++	// Runs after exit_fs() if the task is exiting; path lookups would oops
++	if (current->flags & PF_EXITING)
++		return;
++	track_throne(false);
++}
++
++// Never scan from the fsnotify handler: fsnotify_mark_srcu and the rename's dir
++// locks would be held for the whole scan. Defer with task_work, not a kthread
++// or kworker: the scan must finish before the rename returns, or the manager
++// can be opened before it is crowned, and it must run in the renamer's
++// (Android's) namespaces, which differ from init_task's on WSA/Waydroid.
++static void ksu_defer_track_throne(void)
++{
++	struct callback_head *cb;
++
++	if (!(current->flags & PF_KTHREAD)) {
++		cb = kzalloc(sizeof(*cb), GFP_KERNEL);
++		if (cb) {
++			cb->func = ksu_track_throne_tw_func;
++			if (!task_work_add(current, cb, KSU_TWA_RESUME))
++				return;
++			kfree(cb);
++		}
++	}
++	pr_warn("defer track_throne failed, run it inline\n");
++	track_throne(false);
++}
++
+ #include "pkg_observer_defs.h" // KSU_DECL_FSNOTIFY_OPS
+ static KSU_DECL_FSNOTIFY_OPS(ksu_handle_inode_event)
+ {
+@@ -33,7 +74,7 @@ static KSU_DECL_FSNOTIFY_OPS(ksu_handle_inode_event)
+ 	if (ksu_fname_len(file_name) == 13 &&
+ 	    !memcmp(ksu_fname_arg(file_name), "packages.list", 13)) {
+ 		pr_info("packages.list detected: %d\n", mask);
+-		track_throne(false);
++		ksu_defer_track_throne();
+ 	}
+ 	/* Only /data/adb has a "ksud"; keep sucompat's view of it current. */
+ 	if (ksu_fname_len(file_name) == 4 &&
+diff --git a/kernel/manager/throne_tracker.c b/kernel/manager/throne_tracker.c
+index 90b1b99e..f04aa2d9 100644
+--- a/kernel/manager/throne_tracker.c
++++ b/kernel/manager/throne_tracker.c
+@@ -73,14 +73,6 @@ struct data_path {
+ 	struct list_head list;
+ };
+ 
+-struct apk_path_hash {
+-	unsigned int hash;
+-	bool exists;
+-	struct list_head list;
+-};
+-
+-static struct list_head apk_path_hash_list = LIST_HEAD_INIT(apk_path_hash_list);
+-
+ struct my_dir_context {
+ 	struct dir_context ctx;
+ 	struct list_head *data_path_list;
+@@ -173,12 +165,6 @@ void search_manager(const char *path, int depth, struct list_head *uid_data)
+ 	INIT_LIST_HEAD(&data_path_list);
+ 	unsigned long data_app_magic = 0;
+ 
+-	// Initialize APK cache list
+-	struct apk_path_hash *pos, *n;
+-	list_for_each_entry (pos, &apk_path_hash_list, list) {
+-		pos->exists = false;
+-	}
+-
+ 	// First depth
+ 	struct data_path data;
+ 	strscpy(data.dirpath, path, DATA_PATH_LEN);
+@@ -249,14 +235,6 @@ void search_manager(const char *path, int depth, struct list_head *uid_data)
+ 				kfree(pos);
+ 		}
+ 	}
+-
+-	// Remove stale cached APK entries
+-	list_for_each_entry_safe (pos, n, &apk_path_hash_list, list) {
+-		if (!pos->exists) {
+-			list_del(&pos->list);
+-			kfree(pos);
+-		}
+-	}
+ }
+ 
+ static bool is_uid_exist(uid_t uid, char *package, void *data)
+@@ -425,12 +403,7 @@ out_revert_cred:
+ 
+ void __init ksu_throne_tracker_init()
+ {
+-	struct apk_path_hash *pos, *n;
+-
+-	list_for_each_entry_safe (pos, n, &apk_path_hash_list, list) {
+-		list_del(&pos->list);
+-		kfree(pos);
+-	}
++	// nothing to do
+ }
+ 
+ void __exit ksu_throne_tracker_exit()
+diff --git a/kernel/selinux/sepolicy.c b/kernel/selinux/sepolicy.c
+index 14088e01..cd039ee9 100644
+--- a/kernel/selinux/sepolicy.c
++++ b/kernel/selinux/sepolicy.c
+@@ -90,8 +90,7 @@ static bool add_typeattribute(struct policydb *db, const char *type,
+ #define symtab_insert(s, name, datum) hashtab_insert((s)->table, name, datum)
+ #endif
+ 
+-#define avtab_for_each(avtab, cur)                                             \
+-    ksu_hash_for_each(avtab.htable, avtab.nslot, cur);
++#define avtab_for_each(avtab, cur) ksu_hash_for_each(avtab.htable, avtab.nslot, cur)
+ 
+ static struct avtab_node *get_avtab_node(struct policydb *db,
+                                          struct avtab_key *key,
+@@ -131,12 +130,12 @@ static struct avtab_node *get_avtab_node(struct policydb *db,
+         /* this is used to get the node - insertion is actually unique */
+         node = avtab_insert_nonunique(&db->te_avtab, key, &avdatum);
+ 
++        // extra size: add_type() can grow policy without updating db->len
+         int grow_size = sizeof(struct avtab_key);
+         grow_size += sizeof(struct avtab_datum);
+         if (key->specified & AVTAB_XPERMS) {
+-            grow_size += sizeof(u8);
+-            grow_size += sizeof(u8);
+-            grow_size += sizeof(u32) * ARRAY_SIZE(avdatum.u.xperms->perms.p);
++            grow_size += sizeof(avdatum.u.xperms->specified) + sizeof(avdatum.u.xperms->driver) +
++                         sizeof(avdatum.u.xperms->perms.p);
+         }
+         db->len += grow_size;
+     }
+@@ -159,7 +158,9 @@ static bool remove_avtab_node(struct policydb *db, struct avtab_node *node)
+ {
+     int i;
+     int ret;
+-    int shrink_size = sizeof(struct avtab_key) + sizeof(struct avtab_datum);
++    // https://github.com/torvalds/linux/blob/v6.1/security/selinux/ss/avtab.c#L619
++    int shrink_size = sizeof(node->key.source_type) + sizeof(node->key.target_type) + sizeof(node->key.target_class) +
++                      sizeof(node->key.specified);
+     struct avtab removed = {};
+     struct avtab_node *n;
+     struct avtab_node *prev;
+@@ -193,9 +194,13 @@ static bool remove_avtab_node(struct policydb *db, struct avtab_node *node)
+             if (db->te_avtab.nel > 0)
+                 db->te_avtab.nel--;
+ 
+-            if ((n->key.specified & AVTAB_XPERMS) && n->datum.u.xperms) {
+-                shrink_size += sizeof(u8) + sizeof(u8) + sizeof(u32) * ARRAY_SIZE(n->datum.u.xperms->perms.p);
+-            }
++            if (n->key.specified & AVTAB_XPERMS)
++                // specified and driver are u8, perms.p holds 8 u32s
++                shrink_size += sizeof(n->datum.u.xperms->specified) + sizeof(n->datum.u.xperms->driver) +
++                               sizeof(n->datum.u.xperms->perms.p);
++            else
++                // data is u32
++                shrink_size += sizeof(n->datum.u.data);
+             n->next = NULL;
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 1, 0)
+             flex_array_put_ptr(removed.htable, 0, n, GFP_KERNEL | __GFP_ZERO);
+@@ -432,15 +437,9 @@ static void add_xperm_rule_raw(struct policydb *db, struct type_datum *src,
+         }
+         datum = &node->datum;
+ 
+-        if (datum->u.xperms == NULL) {
+-            datum->u.xperms = (struct avtab_extended_perms *)(kzalloc(
+-                sizeof(xperms), GFP_KERNEL));
+-            if (!datum->u.xperms) {
+-                pr_err("alloc xperms failed\n");
+-                return;
+-            }
+-            memcpy(datum->u.xperms, &xperms, sizeof(xperms));
+-        }
++        // Allow updating permission bits of existing xperms
++        for (i = 0; i < ARRAY_SIZE(xperms.perms.p); i++)
++            datum->u.xperms->perms.p[i] |= xperms.perms.p[i];
+     }
+ }
+ 
