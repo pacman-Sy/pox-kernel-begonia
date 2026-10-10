@@ -1,0 +1,21 @@
+diff --git a/kernel/hook/syscall_hook.h b/kernel/hook/syscall_hook.h
+index d4921bf..ade2f94 100644
+--- a/kernel/hook/syscall_hook.h
++++ b/kernel/hook/syscall_hook.h
+@@ -1,11 +1,16 @@
+ #ifndef __KSU_H_KSU_SYSCALL_HOOK
+ #define __KSU_H_KSU_SYSCALL_HOOK
+ #include <asm/syscall.h>
++#include <asm/ptrace.h>
+ 
+ #if defined(__x86_64__)
+ typedef sys_call_ptr_t syscall_fn_t;
+ #elif defined(__riscv)
+ typedef long (*syscall_fn_t)(const struct pt_regs *);
++#elif !defined(syscall_fn_t)
++/* arm64 only grew syscall_fn_t in asm/syscall.h in 5.x; older trees (4.14)
++ * have no such typedef, so supply the identical one here. */
++typedef long (*syscall_fn_t)(const struct pt_regs *);
+ #endif
+ 
+ extern syscall_fn_t *ksu_syscall_table;
