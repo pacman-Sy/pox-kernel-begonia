@@ -1,0 +1,12 @@
+diff --git a/kernel/hook/syscall_event_bridge.c b/kernel/hook/syscall_event_bridge.c
+index 9d2977f..24e4c0b 100644
+--- a/kernel/hook/syscall_event_bridge.c
++++ b/kernel/hook/syscall_event_bridge.c
+@@ -6,6 +6,7 @@
+ #include <asm/syscall.h>
+ #include <linux/ptrace.h>
+ #include <linux/static_key.h>
++#include <linux/uaccess.h>
+ 
+ #include "arch.h"
+ #include "klog.h" // IWYU pragma: keep
