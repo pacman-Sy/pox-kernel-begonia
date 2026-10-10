@@ -1,0 +1,27 @@
+diff --git a/kernel/policy/app_profile.c b/kernel/policy/app_profile.c
+index 6336a22..86768db 100644
+--- a/kernel/policy/app_profile.c
++++ b/kernel/policy/app_profile.c
+@@ -77,7 +77,7 @@ void seccomp_filter_release(struct task_struct *tsk);
+ static bool has_call_to_spin_lock = false;
+ #endif
+ 
+-static void disable_seccomp(void)
++void disable_seccomp(void)
+ {
+     struct task_struct *fake;
+ 
+diff --git a/kernel/policy/app_profile.h b/kernel/policy/app_profile.h
+index 0e223df..41bc998 100644
+--- a/kernel/policy/app_profile.h
++++ b/kernel/policy/app_profile.h
+@@ -11,6 +11,9 @@ int escape_with_root_profile(void);
+ 
+ void escape_to_root_for_init(void);
+ 
++/* needed by setuid_hook.c on kernels without the seccomp allow-cache (<5.10) */
++void disable_seccomp(void);
++
+ void __init ksu_app_profile_init(void);
+ 
+ #endif
